@@ -81,11 +81,12 @@
       <div class="side-sub" id="sideBrand">Root Eye Systems</div>
       <div class="user-chip"><strong id="sideUserName">User</strong><small id="sideRole">user</small></div>
       <nav>
-        <button class="nav-btn active" data-target="dashboard">🏠 Dashboard</button>
+        <button class="nav-btn active" data-target="dashboard" data-perm="dashboard_view">🏠 Dashboard</button>
         <button class="nav-btn" data-target="sales" data-perm="sales_view">📈 Sales</button>
         <button class="nav-btn" data-target="expenses" data-perm="expenses_view">💳 Expenses</button>
         <button class="nav-btn" data-target="pnl" data-perm="pnl_view">📊 P&L</button>
         <button class="nav-btn" data-target="users" data-perm="users_manage">👥 Users & Permissions</button>
+        <button class="nav-btn" data-target="audit" data-perm="audit_view">🧾 Audit Log</button>
         <button class="nav-btn" data-target="license" data-perm="license_view">🔐 License</button>
       </nav>
     </aside>
@@ -273,6 +274,46 @@
         </div>
       </section>
 
+
+      <section id="audit" class="section">
+        <div class="panel">
+          <div class="panel-title">
+            <div>
+              <h2>Audit Log</h2>
+              <p>سجل كامل للإضافات والتعديلات والحذف داخل النظام</p>
+            </div>
+          </div>
+          <div class="toolbar" style="box-shadow:none">
+            <div class="field"><label>Action</label>
+              <select id="auditAction">
+                <option value="">All</option>
+                <option value="INSERT">Insert</option>
+                <option value="UPDATE">Update</option>
+                <option value="DELETE">Delete</option>
+              </select>
+            </div>
+            <div class="field"><label>Module</label>
+              <select id="auditModule">
+                <option value="">All</option>
+                <option value="sales">Sales</option>
+                <option value="expenses">Expenses</option>
+              </select>
+            </div>
+            <div class="field"><label>From</label><input type="date" id="auditFrom"></div>
+            <div class="field"><label>To</label><input type="date" id="auditTo"></div>
+            <button class="btn btn-light" onclick="loadAudit()">Refresh</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Date & Time</th><th>User</th><th>Role</th><th>Module</th><th>Action</th><th>Record</th><th>Details</th></tr>
+              </thead>
+              <tbody id="auditBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <section id="license" class="section">
         <div class="panel"><h2>License Information</h2><div class="pnl-line"><span>Company</span><strong id="licCompany"></strong></div><div class="pnl-line"><span>Plan</span><strong id="licPlan"></strong></div><div class="pnl-line"><span>Status</span><strong id="licStatus"></strong></div><div class="pnl-line"><span>Expiry Date</span><strong id="licExpiry"></strong></div><div class="pnl-line"><span>Max Users</span><strong id="licMaxUsers"></strong></div></div>
       </section>
@@ -287,8 +328,8 @@
 const C=window.APP_CONFIG||{};
 const configured=C.SUPABASE_URL&&!C.SUPABASE_URL.includes('YOUR_PROJECT')&&C.SUPABASE_ANON_KEY&&!C.SUPABASE_ANON_KEY.includes('YOUR_');
 let db=null,currentUser=null,ctx=null,sales=[],expenses=[],users=[],editSaleId=null,editExpenseId=null,pendingImport={type:null,rows:[]};
-const ALL_PERMS=['sales_view','sales_add','sales_edit','sales_delete','expenses_view','expenses_add','expenses_edit','expenses_delete','pnl_view','excel_import','excel_export','users_manage','license_view'];
-const LABELS={sales_view:'عرض المبيعات',sales_add:'إضافة مبيعات',sales_edit:'تعديل المبيعات',sales_delete:'حذف المبيعات',expenses_view:'عرض المصروفات',expenses_add:'إضافة مصروفات',expenses_edit:'تعديل المصروفات',expenses_delete:'حذف المصروفات',pnl_view:'عرض P&L',excel_import:'رفع Excel',excel_export:'تصدير Excel',users_manage:'إدارة المستخدمين',license_view:'عرض الترخيص'};
+const ALL_PERMS=['dashboard_view','sales_view','sales_add','sales_edit','sales_delete','expenses_view','expenses_add','expenses_edit','expenses_delete','pnl_view','excel_import','excel_export','users_manage','audit_view','license_view'];
+const LABELS={dashboard_view:'عرض Dashboard',audit_view:'عرض سجل الحركات',sales_view:'عرض المبيعات',sales_add:'إضافة مبيعات',sales_edit:'تعديل المبيعات',sales_delete:'حذف المبيعات',expenses_view:'عرض المصروفات',expenses_add:'إضافة مصروفات',expenses_edit:'تعديل المصروفات',expenses_delete:'حذف المصروفات',pnl_view:'عرض P&L',excel_import:'رفع Excel',excel_export:'تصدير Excel',users_manage:'إدارة المستخدمين',license_view:'عرض الترخيص'};
 const $=id=>document.getElementById(id), today=()=>new Date().toISOString().slice(0,10), num=v=>Number(String(v??'').replace(/,/g,''))||0, fmt=n=>new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(num(n));
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const allowed=p=>ctx?.permissions?.includes(p)||ctx?.role==='owner';
@@ -323,7 +364,7 @@ function applyPermissions(){
   document.querySelectorAll('[data-action-perm]').forEach(el=>el.classList.toggle('hidden',!allowed(el.dataset.actionPerm)));
 }
 function selectFirstAllowed(){const btn=document.querySelector('.nav-btn[data-target="dashboard"]')||[...document.querySelectorAll('.nav-btn:not(.hidden)')][0];if(btn)btn.click()}
-document.querySelectorAll('.nav-btn').forEach(b=>b.onclick=()=>{document.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.target).classList.add('active');if(b.dataset.target==='dashboard')renderDashboard();if(b.dataset.target==='pnl')renderPnL();if(b.dataset.target==='users')loadUsers()});
+document.querySelectorAll('.nav-btn').forEach(b=>b.onclick=()=>{document.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.target).classList.add('active');if(b.dataset.target==='dashboard')renderDashboard();if(b.dataset.target==='pnl')renderPnL();if(b.dataset.target==='users')loadUsers();if(b.dataset.target==='audit')loadAudit()});
 
 async function loadSales(){const {data,error}=await db.from('sales').select('*').order('sale_date',{ascending:false});if(error){toast(error.message);return}sales=data||[];renderSales();renderDashboard()}
 async function loadExpenses(){const {data,error}=await db.from('expenses').select('*').order('expense_date',{ascending:false});if(error){toast(error.message);return}expenses=data||[];renderExpenses();renderPnL();renderDashboard()}
@@ -371,6 +412,35 @@ function renderDashboard(){
 function renderPnL(){const f=$('pnlFrom').value,t=$('pnlTo').value,ss=sales.filter(x=>inRange(x.sale_date,f,t)),ee=expenses.filter(x=>inRange(x.expense_date,f,t)),rev=ss.reduce((s,x)=>s+num(x.price),0),cost=ss.reduce((s,x)=>s+num(x.cost),0),gross=rev-cost,exp=ee.reduce((s,x)=>s+num(x.amount),0),profit=gross-exp;$('pnlRevenue').textContent=fmt(rev);$('pnlCost').textContent=fmt(cost);$('pnlGross').textContent=fmt(gross);$('pnlExpenses').textContent=fmt(exp);$('pnlProfit').textContent=fmt(profit);$('pnlProfit').className=profit>=0?'positive':'negative'}
 ['salesSearch','salesFrom','salesTo'].forEach(id=>$(id).oninput=renderSales);['expensesSearch','expensesFrom','expensesTo'].forEach(id=>$(id).oninput=renderExpenses);['pnlFrom','pnlTo'].forEach(id=>$(id).oninput=renderPnL);
 
+
+async function loadAudit(){
+  if(!allowed('audit_view')) return;
+  const action=$('auditAction')?.value||'', module=$('auditModule')?.value||'';
+  const from=$('auditFrom')?.value||'', to=$('auditTo')?.value||'';
+  let q=db.from('audit_logs').select('*').order('created_at',{ascending:false}).limit(500);
+  if(action) q=q.eq('action',action);
+  if(module) q=q.eq('table_name',module);
+  if(from) q=q.gte('created_at',from+'T00:00:00');
+  if(to) q=q.lte('created_at',to+'T23:59:59');
+  const {data,error}=await q;
+  if(error){toast(error.message);return}
+  const rows=data||[];
+  $('auditBody').innerHTML=rows.length?rows.map(x=>{
+    const details=x.action==='UPDATE'
+      ? `Before: ${esc(JSON.stringify(x.old_data||{}))}<br>After: ${esc(JSON.stringify(x.new_data||{}))}`
+      : esc(JSON.stringify(x.new_data||x.old_data||{}));
+    return `<tr>
+      <td>${new Date(x.created_at).toLocaleString()}</td>
+      <td>${esc(x.user_name||x.user_email||'Unknown')}</td>
+      <td>${esc(x.user_role||'')}</td>
+      <td>${esc(x.table_name)}</td>
+      <td><span class="badge ${x.action==='DELETE'?'expired-license':'active-license'}">${esc(x.action)}</span></td>
+      <td>${esc(x.record_id||'')}</td>
+      <td style="white-space:normal;text-align:left;max-width:420px">${details}</td>
+    </tr>`;
+  }).join(''):'<tr><td colspan="7" class="empty">No audit records</td></tr>';
+}
+
 function renderLicense(){$('licCompany').textContent=ctx.company_name||'-';$('licPlan').textContent=ctx.plan_name||'-';$('licStatus').innerHTML=`<span class="badge ${ctx.license_valid?'active-license':'expired-license'}">${esc(ctx.license_status||'-')}</span>`;$('licExpiry').textContent=ctx.expiry_date||'Lifetime';$('licMaxUsers').textContent=ctx.max_users??'-'}
 async function loadUsers(){if(!allowed('users_manage'))return;const{data,error}=await db.rpc('list_company_users');if(error)return toast(error.message);users=data||[];$('usersBody').innerHTML=users.length?users.map(u=>`<tr><td>${esc(u.full_name)}</td><td>${esc(u.email)}</td><td>${esc(u.role)}</td><td>${u.is_active?'Active':'Disabled'}</td><td><button class="btn btn-light" onclick="openPermissions('${u.id}')">Permissions</button></td></tr>`).join(''):'<tr><td colspan="5" class="empty">لا يوجد مستخدمون</td></tr>'}
 $('newUserForm').onsubmit=async e=>{e.preventDefault();if(!allowed('users_manage'))return;const{data,error}=await db.functions.invoke('create-user',{body:{full_name:$('newFullName').value.trim(),email:$('newEmail').value.trim(),password:$('newPassword').value,role:$('newRole').value}});if(error||data?.error)return toast(data?.error||error.message);e.target.reset();toast('تم إنشاء المستخدم');await loadUsers()}
@@ -387,6 +457,7 @@ function exportData(type){if(!allowed('excel_export'))return;const r=type==='sal
 function exportPnL(){if(!allowed('excel_export'))return;const f=$('pnlFrom').value,t=$('pnlTo').value,ss=sales.filter(x=>inRange(x.sale_date,f,t)),ee=expenses.filter(x=>inRange(x.expense_date,f,t)),rev=ss.reduce((s,x)=>s+num(x.price),0),cost=ss.reduce((s,x)=>s+num(x.cost),0),gross=rev-cost,exp=ee.reduce((s,x)=>s+num(x.amount),0),r=[{Item:'Total Revenue',Amount:rev},{Item:'Total Cost',Amount:cost},{Item:'Gross Profit',Amount:gross},{Item:'Total Expenses',Amount:exp},{Item:'Net Profit',Amount:gross-exp}],ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'P&L');XLSX.writeFile(wb,'Profit_and_Loss.xlsx')}
 
 ['dashboardFrom','dashboardTo'].forEach(id=>$(id).oninput=renderDashboard);
+['auditAction','auditModule','auditFrom','auditTo'].forEach(id=>{if($(id))$(id).oninput=loadAudit});
 $('dashboardReset').onclick=()=>{$('dashboardFrom').value='';$('dashboardTo').value='';renderDashboard()};
 
 init();

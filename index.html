@@ -1,370 +1,228 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sales & P&L Manager</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sales & P&L</title>
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
-    :root{
-      --bg:#f4f7fb; --panel:#ffffff; --primary:#2463eb; --primary2:#1d4ed8;
-      --text:#172033; --muted:#6b7280; --border:#e5e7eb; --success:#16865a;
-      --danger:#d63d3d; --warning:#b7791f; --shadow:0 10px 30px rgba(23,32,51,.08);
-    }
-    *{box-sizing:border-box}
-    body{margin:0;font-family:Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text)}
-    button,input,select{font:inherit}
-    .app{display:grid;grid-template-columns:245px 1fr;min-height:100vh}
-    aside{background:#15213c;color:#fff;padding:22px 16px;position:sticky;top:0;height:100vh}
-    .brand{font-size:22px;font-weight:700;margin-bottom:6px}
-    .subbrand{font-size:12px;color:#b8c3d9;margin-bottom:28px;line-height:1.7}
-    .nav-btn{width:100%;display:flex;align-items:center;gap:10px;border:0;background:transparent;color:#dfe7f5;padding:13px 14px;border-radius:10px;cursor:pointer;margin-bottom:8px;text-align:right}
-    .nav-btn:hover,.nav-btn.active{background:#2463eb;color:#fff}
-    main{padding:28px;min-width:0}
-    .topbar{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:22px}
-    h1{font-size:26px;margin:0}
-    .date-note{color:var(--muted);font-size:13px}
-    .section{display:none}.section.active{display:block}
-    .cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:20px}
-    .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px;box-shadow:var(--shadow)}
-    .card .label{color:var(--muted);font-size:13px}.card .value{font-size:25px;font-weight:700;margin-top:8px}
-    .toolbar,.panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow:var(--shadow);margin-bottom:16px}
-    .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
-    .field{display:flex;flex-direction:column;gap:6px;min-width:145px;flex:1}
-    .field label{font-size:12px;color:var(--muted)}
-    input,select{border:1px solid #d6dbe5;border-radius:9px;padding:10px 11px;background:#fff;color:var(--text);outline:none}
-    input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(36,99,235,.12)}
-    .btn{border:0;border-radius:9px;padding:10px 14px;cursor:pointer;font-weight:700}
-    .btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary2)}
-    .btn-light{background:#eef3ff;color:var(--primary)} .btn-danger{background:#fff0f0;color:var(--danger)}
-    .btn-success{background:#eaf9f2;color:var(--success)}
-    .table-wrap{overflow:auto;border:1px solid var(--border);border-radius:12px}
-    table{width:100%;border-collapse:collapse;min-width:800px;background:#fff}
-    th,td{padding:12px 10px;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap}
-    th{background:#f7f9fc;font-size:13px;color:#475569;position:sticky;top:0}
-    td{font-size:13px}.num{direction:ltr;text-align:center}
-    .row-actions{display:flex;justify-content:center;gap:6px}
-    .icon-btn{border:0;border-radius:7px;padding:7px 9px;cursor:pointer}
-    .empty{padding:35px;text-align:center;color:var(--muted)}
-    .pnl-grid{display:grid;grid-template-columns:1.3fr .7fr;gap:16px}
-    .statement .line{display:flex;justify-content:space-between;padding:15px 4px;border-bottom:1px dashed var(--border)}
-    .statement .line.total{font-size:18px;font-weight:700;border-bottom:0;padding-top:20px}
-    .positive{color:var(--success)}.negative{color:var(--danger)}
-    .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;align-items:center;justify-content:center;padding:18px;z-index:20}
-    .modal-backdrop.show{display:flex}
-    .modal{background:#fff;border-radius:16px;width:min(950px,100%);max-height:90vh;overflow:auto;padding:20px;box-shadow:0 25px 80px rgba(0,0,0,.25)}
-    .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
-    .modal h3{margin:0}.close{border:0;background:#eef2f7;border-radius:8px;padding:8px 11px;cursor:pointer}
-    .choice-row{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
-    .notice{padding:11px 13px;border-radius:9px;background:#eef5ff;color:#244785;font-size:13px;margin-bottom:12px}
-    .toast{position:fixed;left:24px;bottom:24px;background:#172033;color:#fff;padding:12px 16px;border-radius:10px;opacity:0;transform:translateY(10px);transition:.25s;z-index:50}
-    .toast.show{opacity:1;transform:translateY(0)}
-    @media(max-width:900px){
-      .app{grid-template-columns:1fr}
-      aside{height:auto;position:static;padding:14px}
-      .brand,.subbrand{display:none}
-      nav{display:flex;gap:8px;overflow:auto}.nav-btn{min-width:140px;margin:0}
-      main{padding:16px}.cards{grid-template-columns:repeat(2,1fr)}.pnl-grid{grid-template-columns:1fr}
-    }
-    @media(max-width:560px){.cards{grid-template-columns:1fr}.topbar{align-items:flex-start;flex-direction:column}}
-    @media print{
-      aside,.toolbar,.no-print,.row-actions,.topbar .date-note{display:none!important}
-      .app{display:block}main{padding:0}.section{display:none!important}.section.active{display:block!important}
-      .card,.panel{box-shadow:none;border:1px solid #ccc}
-    }
+    :root{--bg:#f5f7fb;--panel:#fff;--nav:#15213c;--primary:#2563eb;--primary2:#1d4ed8;--text:#172033;--muted:#6b7280;--line:#e5e7eb;--ok:#12805c;--bad:#c93434;--warn:#a15c00;--shadow:0 10px 30px rgba(23,32,51,.08)}
+    *{box-sizing:border-box}body{margin:0;font-family:Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text)}button,input,select{font:inherit}
+    .hidden{display:none!important}.screen{min-height:100vh}.center{display:grid;place-items:center;padding:22px}
+    .auth-card{width:min(440px,100%);background:#fff;border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:var(--shadow)}
+    .logo{font-size:27px;font-weight:800}.brand-note{color:var(--muted);font-size:13px;margin:7px 0 24px}.form-field{display:flex;flex-direction:column;gap:7px;margin-bottom:13px}.form-field label{font-size:13px;color:var(--muted)}
+    input,select{border:1px solid #d6dbe5;border-radius:10px;padding:11px 12px;outline:none;background:#fff;color:var(--text)}input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+    .btn{border:0;border-radius:10px;padding:11px 15px;cursor:pointer;font-weight:700}.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary2)}.btn-light{background:#edf3ff;color:var(--primary)}.btn-danger{background:#fff0f0;color:var(--bad)}.btn-success{background:#e9f8f2;color:var(--ok)}.full{width:100%}
+    .message{padding:11px 13px;border-radius:10px;font-size:13px;margin:12px 0}.message.info{background:#eef5ff;color:#244785}.message.error{background:#fff0f0;color:var(--bad)}.message.ok{background:#eaf8f2;color:var(--ok)}
+    .app{display:grid;grid-template-columns:250px 1fr;min-height:100vh}.side{background:var(--nav);color:#fff;padding:20px 15px;position:sticky;top:0;height:100vh}.side-title{font-size:21px;font-weight:800}.side-sub{font-size:12px;color:#b8c3d9;line-height:1.7;margin:6px 0 24px}
+    .user-chip{background:rgba(255,255,255,.08);padding:12px;border-radius:12px;margin-bottom:18px}.user-chip strong{display:block}.user-chip small{color:#c8d2e5}
+    .nav-btn{display:flex;width:100%;border:0;background:transparent;color:#dce5f5;padding:13px;border-radius:10px;cursor:pointer;text-align:right;margin-bottom:7px}.nav-btn.active,.nav-btn:hover{background:var(--primary);color:#fff}
+    main{padding:26px;min-width:0}.top{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:20px}.welcome h1{margin:0;font-size:28px}.welcome p{margin:6px 0 0;color:var(--muted)}
+    .section{display:none}.section.active{display:block}.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:17px}.card,.panel,.toolbar{background:#fff;border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow)}.card{padding:18px}.card .label{font-size:13px;color:var(--muted)}.card .value{font-size:25px;font-weight:800;margin-top:8px}
+    .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:end;padding:15px;margin-bottom:15px}.field{display:flex;flex-direction:column;gap:6px;min-width:140px;flex:1}.field label{font-size:12px;color:var(--muted)}.panel{padding:15px;margin-bottom:15px}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px}table{width:100%;border-collapse:collapse;min-width:760px}th,td{padding:11px 9px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap;font-size:13px}th{background:#f7f9fc;color:#475569}.actions{display:flex;justify-content:center;gap:6px}.empty{text-align:center;color:var(--muted);padding:30px}
+    .pnl{max-width:750px}.pnl-line{display:flex;justify-content:space-between;padding:16px 4px;border-bottom:1px dashed var(--line)}.pnl-line.total{font-size:19px;font-weight:800;border-bottom:0}.positive{color:var(--ok)}.negative{color:var(--bad)}
+    .badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px}.active-license{background:#eaf8f2;color:var(--ok)}.expired-license{background:#fff0f0;color:var(--bad)}
+    .permissions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.perm{border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;gap:8px;align-items:center}.perm input{width:auto}
+    .modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}.modal-bg.show{display:flex}.modal{width:min(950px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:16px;padding:20px}.modal-head{display:flex;justify-content:space-between;align-items:center}.toast{position:fixed;left:22px;bottom:22px;background:#172033;color:#fff;padding:12px 16px;border-radius:10px;opacity:0;transform:translateY(10px);transition:.2s;z-index:80}.toast.show{opacity:1;transform:none}
+    @media(max-width:900px){.app{grid-template-columns:1fr}.side{height:auto;position:static}.side nav{display:flex;overflow:auto;gap:7px}.nav-btn{min-width:140px;margin:0}.cards{grid-template-columns:repeat(2,1fr)}.permissions{grid-template-columns:1fr 1fr}main{padding:15px}}
+    @media(max-width:560px){.cards,.permissions{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}}
+    @media print{.side,.toolbar,.actions,.no-print,.top .btn{display:none!important}.app{display:block}main{padding:0}.section{display:none!important}.section.active{display:block!important}.card,.panel{box-shadow:none}}
   </style>
 </head>
 <body>
-<div class="app">
-  <aside>
-    <div class="brand">Sales & P&L</div>
-    <div class="subbrand">إدارة المبيعات والمصروفات وقائمة الأرباح والخسائر</div>
-    <nav>
-      <button class="nav-btn active" data-target="sales">📈 المبيعات Sales</button>
-      <button class="nav-btn" data-target="expenses">💳 المصروفات Expenses</button>
-      <button class="nav-btn" data-target="pnl">📊 الأرباح والخسائر P&L</button>
-    </nav>
-  </aside>
-
-  <main>
-    <div class="topbar">
-      <h1 id="pageTitle">المبيعات Sales</h1>
-      <div class="date-note">يتم حفظ البيانات تلقائيًا على الجهاز</div>
+  <section id="setupScreen" class="screen center hidden">
+    <div class="auth-card">
+      <div class="logo">إعداد Supabase مطلوب</div>
+      <div class="brand-note">Root Eye Systems</div>
+      <div class="message error">افتح ملف <b>config.js</b> وضع رابط Supabase والـ Publishable/Anon Key، ثم نفّذ ملف <b>supabase_setup.sql</b>.</div>
     </div>
+  </section>
 
-    <section id="sales" class="section active">
-      <div class="cards">
-        <div class="card"><div class="label">إجمالي المبيعات</div><div class="value" id="salesRevenue">0.00</div></div>
-        <div class="card"><div class="label">إجمالي التكلفة</div><div class="value" id="salesCost">0.00</div></div>
-        <div class="card"><div class="label">مجمل الربح</div><div class="value" id="salesNet">0.00</div></div>
-        <div class="card"><div class="label">عدد العمليات</div><div class="value" id="salesCount">0</div></div>
+  <section id="loginScreen" class="screen center hidden">
+    <form id="loginForm" class="auth-card">
+      <div class="logo" id="loginAppName">Sales & P&L</div>
+      <div class="brand-note" id="loginBrand">Root Eye Systems</div>
+      <div class="form-field"><label>Email</label><input type="email" id="loginEmail" required autocomplete="username"></div>
+      <div class="form-field"><label>Password</label><input type="password" id="loginPassword" required autocomplete="current-password"></div>
+      <button class="btn btn-primary full" type="submit">Login</button>
+      <div id="loginMsg"></div>
+    </form>
+  </section>
+
+  <section id="blockedScreen" class="screen center hidden">
+    <div class="auth-card">
+      <div class="logo">License Required</div>
+      <div class="brand-note">الترخيص غير نشط أو منتهي</div>
+      <div id="blockedDetails" class="message error"></div>
+      <button class="btn btn-light full" onclick="logout()">تسجيل الخروج</button>
+    </div>
+  </section>
+
+  <div id="appScreen" class="app hidden">
+    <aside class="side">
+      <div class="side-title" id="sideAppName">Sales & P&L</div>
+      <div class="side-sub" id="sideBrand">Root Eye Systems</div>
+      <div class="user-chip"><strong id="sideUserName">User</strong><small id="sideRole">user</small></div>
+      <nav>
+        <button class="nav-btn active" data-target="sales" data-perm="sales_view">📈 Sales</button>
+        <button class="nav-btn" data-target="expenses" data-perm="expenses_view">💳 Expenses</button>
+        <button class="nav-btn" data-target="pnl" data-perm="pnl_view">📊 P&L</button>
+        <button class="nav-btn" data-target="users" data-perm="users_manage">👥 Users & Permissions</button>
+        <button class="nav-btn" data-target="license" data-perm="license_view">🔐 License</button>
+      </nav>
+    </aside>
+    <main>
+      <div class="top">
+        <div class="welcome"><h1 id="welcomeText">Welcome</h1><p id="companyText"></p></div>
+        <button class="btn btn-light" onclick="logout()">Logout</button>
       </div>
 
-      <div class="toolbar">
-        <div class="field"><label>Date</label><input type="date" id="saleDate"></div>
-        <div class="field"><label>Customer Name</label><input id="saleCustomer" placeholder="اسم العميل"></div>
-        <div class="field"><label>Doctor</label><input id="saleDoctor" placeholder="اسم الدكتور"></div>
-        <div class="field"><label>Price</label><input type="number" step="0.01" id="salePrice" placeholder="0.00"></div>
-        <div class="field"><label>Cost</label><input type="number" step="0.01" id="saleCost" placeholder="0.00"></div>
-        <button class="btn btn-primary" id="addSaleBtn">إضافة</button>
-      </div>
-
-      <div class="panel">
-        <div class="toolbar" style="box-shadow:none;border:0;padding:0;margin-bottom:14px">
-          <button class="btn btn-light" onclick="document.getElementById('salesFile').click()">رفع Excel</button>
-          <input type="file" id="salesFile" accept=".xlsx,.xls,.csv" hidden>
-          <button class="btn btn-success" onclick="downloadTemplate('sales')">تحميل نموذج Excel</button>
-          <button class="btn btn-light" onclick="exportData('sales')">تصدير البيانات</button>
-          <button class="btn btn-light" onclick="window.print()">طباعة</button>
-          <div class="field"><label>بحث</label><input id="salesSearch" placeholder="عميل أو دكتور"></div>
-          <div class="field"><label>من تاريخ</label><input type="date" id="salesFrom"></div>
-          <div class="field"><label>إلى تاريخ</label><input type="date" id="salesTo"></div>
+      <section id="sales" class="section active">
+        <div class="cards">
+          <div class="card"><div class="label">Total Revenue</div><div id="salesRevenue" class="value">0.00</div></div>
+          <div class="card"><div class="label">Total Cost</div><div id="salesCostTotal" class="value">0.00</div></div>
+          <div class="card"><div class="label">Gross Profit</div><div id="salesNet" class="value">0.00</div></div>
+          <div class="card"><div class="label">Transactions</div><div id="salesCount" class="value">0</div></div>
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Date</th><th>Customer Name</th><th>Doctor</th><th>Price</th><th>Cost</th><th>Net</th><th class="no-print">Actions</th></tr></thead>
-            <tbody id="salesBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <section id="expenses" class="section">
-      <div class="cards">
-        <div class="card"><div class="label">إجمالي المصروفات</div><div class="value" id="expensesTotal">0.00</div></div>
-        <div class="card"><div class="label">عدد المصروفات</div><div class="value" id="expensesCount">0</div></div>
-      </div>
-
-      <div class="toolbar">
-        <div class="field"><label>Date</label><input type="date" id="expenseDate"></div>
-        <div class="field"><label>Expense Name</label><input id="expenseName" placeholder="اسم المصروف"></div>
-        <div class="field"><label>Amount</label><input type="number" step="0.01" id="expenseAmount" placeholder="0.00"></div>
-        <button class="btn btn-primary" id="addExpenseBtn">إضافة</button>
-      </div>
-
-      <div class="panel">
-        <div class="toolbar" style="box-shadow:none;border:0;padding:0;margin-bottom:14px">
-          <button class="btn btn-light" onclick="document.getElementById('expensesFile').click()">رفع Excel</button>
-          <input type="file" id="expensesFile" accept=".xlsx,.xls,.csv" hidden>
-          <button class="btn btn-success" onclick="downloadTemplate('expenses')">تحميل نموذج Excel</button>
-          <button class="btn btn-light" onclick="exportData('expenses')">تصدير البيانات</button>
-          <button class="btn btn-light" onclick="window.print()">طباعة</button>
-          <div class="field"><label>بحث</label><input id="expensesSearch" placeholder="اسم المصروف"></div>
-          <div class="field"><label>من تاريخ</label><input type="date" id="expensesFrom"></div>
-          <div class="field"><label>إلى تاريخ</label><input type="date" id="expensesTo"></div>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Date</th><th>Expense Name</th><th>Amount</th><th class="no-print">Actions</th></tr></thead>
-            <tbody id="expensesBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <section id="pnl" class="section">
-      <div class="toolbar">
-        <div class="field"><label>من تاريخ</label><input type="date" id="pnlFrom"></div>
-        <div class="field"><label>إلى تاريخ</label><input type="date" id="pnlTo"></div>
-        <button class="btn btn-light" onclick="window.print()">طباعة P&L</button>
-        <button class="btn btn-success" onclick="exportPnL()">تصدير P&L</button>
-      </div>
-      <div class="pnl-grid">
-        <div class="panel statement">
-          <h2 style="margin-top:0">Profit & Loss Statement</h2>
-          <div class="line"><span>Total Revenue</span><strong id="pnlRevenue">0.00</strong></div>
-          <div class="line"><span>Total Cost</span><strong id="pnlCost">0.00</strong></div>
-          <div class="line"><span>Gross Profit</span><strong id="pnlGross">0.00</strong></div>
-          <div class="line"><span>Total Expenses</span><strong id="pnlExpenses">0.00</strong></div>
-          <div class="line total"><span>Net Profit</span><strong id="pnlProfit">0.00</strong></div>
-        </div>
+        <form id="saleForm" class="toolbar" data-action-perm="sales_add">
+          <div class="field"><label>Date</label><input type="date" id="saleDate" required></div>
+          <div class="field"><label>Customer Name</label><input id="saleCustomer" required></div>
+          <div class="field"><label>Doctor</label><input id="saleDoctor"></div>
+          <div class="field"><label>Price</label><input type="number" step="0.01" id="salePrice" required></div>
+          <div class="field"><label>Cost</label><input type="number" step="0.01" id="saleCost" required></div>
+          <button class="btn btn-primary" id="saveSaleBtn">إضافة</button>
+        </form>
         <div class="panel">
-          <h3 style="margin-top:0">المعادلة</h3>
-          <div class="notice">Gross Profit = Total Price − Total Cost</div>
-          <div class="notice">Net Profit = Gross Profit − Total Expenses</div>
-          <p style="color:var(--muted);line-height:1.8">يتم تحديث القائمة تلقائيًا بعد إضافة أو تعديل أو حذف أي عملية مبيعات أو مصروف.</p>
+          <div class="toolbar" style="box-shadow:none;border:0;padding:0">
+            <button class="btn btn-light" id="salesImportBtn" data-action-perm="excel_import">رفع Excel</button><input type="file" id="salesFile" accept=".xlsx,.xls,.csv" hidden>
+            <button class="btn btn-success" onclick="downloadTemplate('sales')" data-action-perm="excel_export">Excel Template</button>
+            <button class="btn btn-light" onclick="exportData('sales')" data-action-perm="excel_export">Export</button>
+            <div class="field"><label>Search</label><input id="salesSearch"></div>
+            <div class="field"><label>From</label><input type="date" id="salesFrom"></div><div class="field"><label>To</label><input type="date" id="salesTo"></div>
+          </div>
+          <div class="table-wrap"><table><thead><tr><th>Date</th><th>Customer Name</th><th>Doctor</th><th>Price</th><th>Cost</th><th>Net</th><th class="no-print">Actions</th></tr></thead><tbody id="salesBody"></tbody></table></div>
         </div>
-      </div>
-    </section>
-  </main>
-</div>
+      </section>
 
-<div class="modal-backdrop" id="importModal">
-  <div class="modal">
-    <div class="modal-head"><h3 id="importTitle">معاينة ملف Excel</h3><button class="close" onclick="closeImport()">✕</button></div>
-    <div class="notice" id="importNotice"></div>
-    <div class="choice-row">
-      <label><input type="radio" name="importMode" value="append" checked> إضافة للبيانات الحالية</label>
-      <label><input type="radio" name="importMode" value="replace"> استبدال البيانات الحالية</label>
-    </div>
-    <div class="table-wrap"><table><thead id="previewHead"></thead><tbody id="previewBody"></tbody></table></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:15px">
-      <button class="btn btn-light" onclick="closeImport()">إلغاء</button>
-      <button class="btn btn-primary" onclick="confirmImport()">حفظ البيانات</button>
-    </div>
+      <section id="expenses" class="section">
+        <div class="cards"><div class="card"><div class="label">Total Expenses</div><div id="expensesTotal" class="value">0.00</div></div><div class="card"><div class="label">Transactions</div><div id="expensesCount" class="value">0</div></div></div>
+        <form id="expenseForm" class="toolbar" data-action-perm="expenses_add">
+          <div class="field"><label>Date</label><input type="date" id="expenseDate" required></div>
+          <div class="field"><label>Expense Name</label><input id="expenseName" required></div>
+          <div class="field"><label>Amount</label><input type="number" step="0.01" id="expenseAmount" required></div>
+          <button class="btn btn-primary" id="saveExpenseBtn">إضافة</button>
+        </form>
+        <div class="panel">
+          <div class="toolbar" style="box-shadow:none;border:0;padding:0">
+            <button class="btn btn-light" id="expensesImportBtn" data-action-perm="excel_import">رفع Excel</button><input type="file" id="expensesFile" accept=".xlsx,.xls,.csv" hidden>
+            <button class="btn btn-success" onclick="downloadTemplate('expenses')" data-action-perm="excel_export">Excel Template</button>
+            <button class="btn btn-light" onclick="exportData('expenses')" data-action-perm="excel_export">Export</button>
+            <div class="field"><label>Search</label><input id="expensesSearch"></div>
+            <div class="field"><label>From</label><input type="date" id="expensesFrom"></div><div class="field"><label>To</label><input type="date" id="expensesTo"></div>
+          </div>
+          <div class="table-wrap"><table><thead><tr><th>Date</th><th>Expense Name</th><th>Amount</th><th class="no-print">Actions</th></tr></thead><tbody id="expensesBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section id="pnl" class="section">
+        <div class="toolbar"><div class="field"><label>From</label><input type="date" id="pnlFrom"></div><div class="field"><label>To</label><input type="date" id="pnlTo"></div><button class="btn btn-light" onclick="window.print()">Print</button><button class="btn btn-success" onclick="exportPnL()" data-action-perm="excel_export">Export P&L</button></div>
+        <div class="panel pnl"><h2>Profit & Loss Statement</h2><div class="pnl-line"><span>Total Revenue</span><strong id="pnlRevenue">0.00</strong></div><div class="pnl-line"><span>Total Cost</span><strong id="pnlCost">0.00</strong></div><div class="pnl-line"><span>Gross Profit</span><strong id="pnlGross">0.00</strong></div><div class="pnl-line"><span>Total Expenses</span><strong id="pnlExpenses">0.00</strong></div><div class="pnl-line total"><span>Net Profit</span><strong id="pnlProfit">0.00</strong></div></div>
+      </section>
+
+      <section id="users" class="section">
+        <div class="panel">
+          <h2>Users & Permissions</h2>
+          <div class="message info">إنشاء المستخدم يتم من خلال Edge Function الآمنة الموجودة داخل الحزمة.</div>
+          <form id="newUserForm" class="toolbar">
+            <div class="field"><label>Full Name</label><input id="newFullName" required></div><div class="field"><label>Email</label><input type="email" id="newEmail" required></div><div class="field"><label>Temporary Password</label><input type="password" id="newPassword" minlength="8" required></div><div class="field"><label>Role</label><select id="newRole"><option value="user">User</option><option value="manager">Manager</option><option value="admin">Admin</option></select></div><button class="btn btn-primary">Create User</button>
+          </form>
+          <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Permissions</th></tr></thead><tbody id="usersBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section id="license" class="section">
+        <div class="panel"><h2>License Information</h2><div class="pnl-line"><span>Company</span><strong id="licCompany"></strong></div><div class="pnl-line"><span>Plan</span><strong id="licPlan"></strong></div><div class="pnl-line"><span>Status</span><strong id="licStatus"></strong></div><div class="pnl-line"><span>Expiry Date</span><strong id="licExpiry"></strong></div><div class="pnl-line"><span>Max Users</span><strong id="licMaxUsers"></strong></div></div>
+      </section>
+    </main>
   </div>
-</div>
-<div class="toast" id="toast"></div>
+
+  <div id="permissionsModal" class="modal-bg"><div class="modal"><div class="modal-head"><h3>تعديل صلاحيات المستخدم</h3><button class="btn btn-light" onclick="closePermissions()">✕</button></div><input type="hidden" id="permUserId"><div id="permList" class="permissions"></div><div style="margin-top:15px;text-align:left"><button class="btn btn-primary" onclick="savePermissions()">حفظ الصلاحيات</button></div></div></div>
+  <div id="importModal" class="modal-bg"><div class="modal"><div class="modal-head"><h3>Excel Preview</h3><button class="btn btn-light" onclick="closeImport()">✕</button></div><div id="importNotice" class="message info"></div><div class="table-wrap"><table><thead id="previewHead"></thead><tbody id="previewBody"></tbody></table></div><div style="margin-top:15px;text-align:left"><button class="btn btn-primary" onclick="confirmImport()">Import</button></div></div></div>
+  <div id="toast" class="toast"></div>
 
 <script>
-const STORAGE_SALES='simple_pnl_sales_v1', STORAGE_EXP='simple_pnl_expenses_v1';
-let sales=JSON.parse(localStorage.getItem(STORAGE_SALES)||'[]');
-let expenses=JSON.parse(localStorage.getItem(STORAGE_EXP)||'[]');
-let editingSale=null, editingExpense=null, pendingImport={type:null,rows:[]};
+const C=window.APP_CONFIG||{};
+const configured=C.SUPABASE_URL&&!C.SUPABASE_URL.includes('YOUR_PROJECT')&&C.SUPABASE_ANON_KEY&&!C.SUPABASE_ANON_KEY.includes('YOUR_');
+let db=null,currentUser=null,ctx=null,sales=[],expenses=[],users=[],editSaleId=null,editExpenseId=null,pendingImport={type:null,rows:[]};
+const ALL_PERMS=['sales_view','sales_add','sales_edit','sales_delete','expenses_view','expenses_add','expenses_edit','expenses_delete','pnl_view','excel_import','excel_export','users_manage','license_view'];
+const LABELS={sales_view:'عرض المبيعات',sales_add:'إضافة مبيعات',sales_edit:'تعديل المبيعات',sales_delete:'حذف المبيعات',expenses_view:'عرض المصروفات',expenses_add:'إضافة مصروفات',expenses_edit:'تعديل المصروفات',expenses_delete:'حذف المصروفات',pnl_view:'عرض P&L',excel_import:'رفع Excel',excel_export:'تصدير Excel',users_manage:'إدارة المستخدمين',license_view:'عرض الترخيص'};
+const $=id=>document.getElementById(id), today=()=>new Date().toISOString().slice(0,10), num=v=>Number(String(v??'').replace(/,/g,''))||0, fmt=n=>new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(num(n));
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+const allowed=p=>ctx?.permissions?.includes(p)||ctx?.role==='owner';
+function toast(m){$('toast').textContent=m;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2200)}
+function show(id){['setupScreen','loginScreen','blockedScreen','appScreen'].forEach(x=>$(x).classList.add('hidden'));$(id).classList.remove('hidden')}
+function inRange(d,f,t){return(!f||d>=f)&&(!t||d<=t)}
+function parseDate(v){if(!v)return'';if(typeof v==='number'){const d=XLSX.SSF.parse_date_code(v);return d?`${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`:''}const s=String(v).trim(),m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);if(m)return`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;const d=new Date(s);return isNaN(d)?'':d.toISOString().slice(0,10)}
+function norm(k){return String(k||'').toLowerCase().replace(/[\s_\-]/g,'')}function pick(o,a){const m={};Object.keys(o).forEach(k=>m[norm(k)]=o[k]);for(const x of a)if(norm(x)in m)return m[norm(x)];return''}
 
-const fmt=n=>new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(n)||0);
-const today=()=>new Date().toISOString().slice(0,10);
-document.getElementById('saleDate').value=today();
-document.getElementById('expenseDate').value=today();
+async function init(){
+  $('loginAppName').textContent=$('sideAppName').textContent=C.APP_NAME||'Sales & P&L';$('loginBrand').textContent=$('sideBrand').textContent=C.BRAND_NAME||'Root Eye Systems';
+  $('saleDate').value=$('expenseDate').value=today();
+  if(!configured){show('setupScreen');return}
+  db=window.supabase.createClient(C.SUPABASE_URL,C.SUPABASE_ANON_KEY);
+  const {data:{session}}=await db.auth.getSession();
+  if(session){currentUser=session.user;await loadContext()}else show('loginScreen');
+  db.auth.onAuthStateChange(async(_,session)=>{if(!session){currentUser=null;show('loginScreen')}});
+}
+$('loginForm').onsubmit=async e=>{e.preventDefault();$('loginMsg').innerHTML='<div class="message info">جاري تسجيل الدخول...</div>';const {data,error}=await db.auth.signInWithPassword({email:$('loginEmail').value.trim(),password:$('loginPassword').value});if(error){$('loginMsg').innerHTML=`<div class="message error">${esc(error.message)}</div>`;return}currentUser=data.user;await loadContext()};
+async function logout(){if(db)await db.auth.signOut();show('loginScreen')}
 
-function save(){localStorage.setItem(STORAGE_SALES,JSON.stringify(sales));localStorage.setItem(STORAGE_EXP,JSON.stringify(expenses));renderAll()}
-function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
-function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2200)}
-function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
-function inRange(date,from,to){return (!from||date>=from)&&(!to||date<=to)}
-function parseDate(v){
-  if(!v) return '';
-  if(typeof v==='number' && window.XLSX){
-    const d=XLSX.SSF.parse_date_code(v); if(d) return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
-  }
-  const s=String(v).trim();
-  const m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
-  const dt=new Date(s); return isNaN(dt)?'':dt.toISOString().slice(0,10);
+async function loadContext(){
+  const {data,error}=await db.rpc('get_my_context');
+  if(error||!data?.length){$('blockedDetails').textContent=error?.message||'لا يوجد ملف مستخدم أو ترخيص.';show('blockedScreen');return}
+  ctx=data[0];ctx.permissions=ctx.permissions||[];
+  if(!ctx.license_valid){$('blockedDetails').textContent=`الحالة: ${ctx.license_status||'غير متاح'} — تاريخ الانتهاء: ${ctx.expiry_date||'-'}`;show('blockedScreen');return}
+  $('welcomeText').textContent=`Welcome ${ctx.full_name||'User'}`;$('companyText').textContent=ctx.company_name||'';$('sideUserName').textContent=ctx.full_name||currentUser.email;$('sideRole').textContent=ctx.role;
+  applyPermissions();renderLicense();show('appScreen');await Promise.all([loadSales(),loadExpenses()]);if(allowed('users_manage'))await loadUsers();selectFirstAllowed();
 }
-function num(v){return Number(String(v??'').replace(/,/g,''))||0}
+function applyPermissions(){
+  document.querySelectorAll('[data-perm]').forEach(el=>el.classList.toggle('hidden',!allowed(el.dataset.perm)));
+  document.querySelectorAll('[data-action-perm]').forEach(el=>el.classList.toggle('hidden',!allowed(el.dataset.actionPerm)));
+}
+function selectFirstAllowed(){const btn=[...document.querySelectorAll('.nav-btn:not(.hidden)')][0];if(btn)btn.click()}
+document.querySelectorAll('.nav-btn').forEach(b=>b.onclick=()=>{document.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.target).classList.add('active');if(b.dataset.target==='pnl')renderPnL();if(b.dataset.target==='users')loadUsers()});
 
-document.querySelectorAll('.nav-btn').forEach(btn=>btn.onclick=()=>{
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  btn.classList.add('active'); document.getElementById(btn.dataset.target).classList.add('active');
-  document.getElementById('pageTitle').textContent=btn.textContent.replace(/^[^\s]+\s/,'');
-  if(btn.dataset.target==='pnl') renderPnL();
-});
+async function loadSales(){const {data,error}=await db.from('sales').select('*').order('sale_date',{ascending:false});if(error){toast(error.message);return}sales=data||[];renderSales()}
+async function loadExpenses(){const {data,error}=await db.from('expenses').select('*').order('expense_date',{ascending:false});if(error){toast(error.message);return}expenses=data||[];renderExpenses();renderPnL()}
+$('saleForm').onsubmit=async e=>{e.preventDefault();const row={sale_date:$('saleDate').value,customer_name:$('saleCustomer').value.trim(),doctor_name:$('saleDoctor').value.trim(),price:num($('salePrice').value),cost:num($('saleCost').value)};let res;if(editSaleId){if(!allowed('sales_edit'))return toast('لا توجد صلاحية');res=await db.from('sales').update(row).eq('id',editSaleId)}else{if(!allowed('sales_add'))return toast('لا توجد صلاحية');res=await db.from('sales').insert(row)}if(res.error)return toast(res.error.message);editSaleId=null;$('saveSaleBtn').textContent='إضافة';['saleCustomer','saleDoctor','salePrice','saleCost'].forEach(id=>$(id).value='');await loadSales();renderPnL();toast('تم الحفظ')};
+$('expenseForm').onsubmit=async e=>{e.preventDefault();const row={expense_date:$('expenseDate').value,expense_name:$('expenseName').value.trim(),amount:num($('expenseAmount').value)};let res;if(editExpenseId){if(!allowed('expenses_edit'))return toast('لا توجد صلاحية');res=await db.from('expenses').update(row).eq('id',editExpenseId)}else{if(!allowed('expenses_add'))return toast('لا توجد صلاحية');res=await db.from('expenses').insert(row)}if(res.error)return toast(res.error.message);editExpenseId=null;$('saveExpenseBtn').textContent='إضافة';['expenseName','expenseAmount'].forEach(id=>$(id).value='');await loadExpenses();toast('تم الحفظ')};
+function editSale(id){if(!allowed('sales_edit'))return;const x=sales.find(r=>r.id===id);editSaleId=id;$('saleDate').value=x.sale_date;$('saleCustomer').value=x.customer_name;$('saleDoctor').value=x.doctor_name||'';$('salePrice').value=x.price;$('saleCost').value=x.cost;$('saveSaleBtn').textContent='حفظ التعديل';scrollTo({top:0,behavior:'smooth'})}
+async function deleteSale(id){if(!allowed('sales_delete')||!confirm('حذف العملية؟'))return;const{error}=await db.from('sales').delete().eq('id',id);if(error)return toast(error.message);await loadSales();renderPnL()}
+function editExpense(id){if(!allowed('expenses_edit'))return;const x=expenses.find(r=>r.id===id);editExpenseId=id;$('expenseDate').value=x.expense_date;$('expenseName').value=x.expense_name;$('expenseAmount').value=x.amount;$('saveExpenseBtn').textContent='حفظ التعديل';scrollTo({top:0,behavior:'smooth'})}
+async function deleteExpense(id){if(!allowed('expenses_delete')||!confirm('حذف المصروف؟'))return;const{error}=await db.from('expenses').delete().eq('id',id);if(error)return toast(error.message);await loadExpenses()}
+function renderSales(){const q=$('salesSearch').value.toLowerCase(),f=$('salesFrom').value,t=$('salesTo').value,r=sales.filter(x=>(!q||x.customer_name.toLowerCase().includes(q)||(x.doctor_name||'').toLowerCase().includes(q))&&inRange(x.sale_date,f,t));$('salesBody').innerHTML=r.length?r.map(x=>`<tr><td>${x.sale_date}</td><td>${esc(x.customer_name)}</td><td>${esc(x.doctor_name)}</td><td>${fmt(x.price)}</td><td>${fmt(x.cost)}</td><td>${fmt(x.price-x.cost)}</td><td><div class="actions">${allowed('sales_edit')?`<button class="btn btn-light" onclick="editSale('${x.id}')">تعديل</button>`:''}${allowed('sales_delete')?`<button class="btn btn-danger" onclick="deleteSale('${x.id}')">حذف</button>`:''}</div></td></tr>`).join(''):'<tr><td colspan="7" class="empty">لا توجد بيانات</td></tr>';$('salesRevenue').textContent=fmt(r.reduce((s,x)=>s+num(x.price),0));$('salesCostTotal').textContent=fmt(r.reduce((s,x)=>s+num(x.cost),0));$('salesNet').textContent=fmt(r.reduce((s,x)=>s+num(x.price)-num(x.cost),0));$('salesCount').textContent=r.length}
+function renderExpenses(){const q=$('expensesSearch').value.toLowerCase(),f=$('expensesFrom').value,t=$('expensesTo').value,r=expenses.filter(x=>(!q||x.expense_name.toLowerCase().includes(q))&&inRange(x.expense_date,f,t));$('expensesBody').innerHTML=r.length?r.map(x=>`<tr><td>${x.expense_date}</td><td>${esc(x.expense_name)}</td><td>${fmt(x.amount)}</td><td><div class="actions">${allowed('expenses_edit')?`<button class="btn btn-light" onclick="editExpense('${x.id}')">تعديل</button>`:''}${allowed('expenses_delete')?`<button class="btn btn-danger" onclick="deleteExpense('${x.id}')">حذف</button>`:''}</div></td></tr>`).join(''):'<tr><td colspan="4" class="empty">لا توجد بيانات</td></tr>';$('expensesTotal').textContent=fmt(r.reduce((s,x)=>s+num(x.amount),0));$('expensesCount').textContent=r.length}
+function renderPnL(){const f=$('pnlFrom').value,t=$('pnlTo').value,ss=sales.filter(x=>inRange(x.sale_date,f,t)),ee=expenses.filter(x=>inRange(x.expense_date,f,t)),rev=ss.reduce((s,x)=>s+num(x.price),0),cost=ss.reduce((s,x)=>s+num(x.cost),0),gross=rev-cost,exp=ee.reduce((s,x)=>s+num(x.amount),0),profit=gross-exp;$('pnlRevenue').textContent=fmt(rev);$('pnlCost').textContent=fmt(cost);$('pnlGross').textContent=fmt(gross);$('pnlExpenses').textContent=fmt(exp);$('pnlProfit').textContent=fmt(profit);$('pnlProfit').className=profit>=0?'positive':'negative'}
+['salesSearch','salesFrom','salesTo'].forEach(id=>$(id).oninput=renderSales);['expensesSearch','expensesFrom','expensesTo'].forEach(id=>$(id).oninput=renderExpenses);['pnlFrom','pnlTo'].forEach(id=>$(id).oninput=renderPnL);
 
-document.getElementById('addSaleBtn').onclick=()=>{
-  const date=document.getElementById('saleDate').value, customer=document.getElementById('saleCustomer').value.trim(),
-        doctor=document.getElementById('saleDoctor').value.trim(), price=num(document.getElementById('salePrice').value),
-        cost=num(document.getElementById('saleCost').value);
-  if(!date||!customer){toast('أدخل التاريخ واسم العميل');return}
-  const row={id:editingSale||uid(),date,customer,doctor,price,cost};
-  if(editingSale) sales=sales.map(x=>x.id===editingSale?row:x); else sales.push(row);
-  editingSale=null; document.getElementById('addSaleBtn').textContent='إضافة';
-  ['saleCustomer','saleDoctor','salePrice','saleCost'].forEach(id=>document.getElementById(id).value=''); save(); toast('تم حفظ عملية المبيعات');
-};
-document.getElementById('addExpenseBtn').onclick=()=>{
-  const date=document.getElementById('expenseDate').value, name=document.getElementById('expenseName').value.trim(),
-        amount=num(document.getElementById('expenseAmount').value);
-  if(!date||!name){toast('أدخل التاريخ واسم المصروف');return}
-  const row={id:editingExpense||uid(),date,name,amount};
-  if(editingExpense) expenses=expenses.map(x=>x.id===editingExpense?row:x); else expenses.push(row);
-  editingExpense=null; document.getElementById('addExpenseBtn').textContent='إضافة';
-  ['expenseName','expenseAmount'].forEach(id=>document.getElementById(id).value=''); save(); toast('تم حفظ المصروف');
-};
+function renderLicense(){$('licCompany').textContent=ctx.company_name||'-';$('licPlan').textContent=ctx.plan_name||'-';$('licStatus').innerHTML=`<span class="badge ${ctx.license_valid?'active-license':'expired-license'}">${esc(ctx.license_status||'-')}</span>`;$('licExpiry').textContent=ctx.expiry_date||'Lifetime';$('licMaxUsers').textContent=ctx.max_users??'-'}
+async function loadUsers(){if(!allowed('users_manage'))return;const{data,error}=await db.rpc('list_company_users');if(error)return toast(error.message);users=data||[];$('usersBody').innerHTML=users.length?users.map(u=>`<tr><td>${esc(u.full_name)}</td><td>${esc(u.email)}</td><td>${esc(u.role)}</td><td>${u.is_active?'Active':'Disabled'}</td><td><button class="btn btn-light" onclick="openPermissions('${u.id}')">Permissions</button></td></tr>`).join(''):'<tr><td colspan="5" class="empty">لا يوجد مستخدمون</td></tr>'}
+$('newUserForm').onsubmit=async e=>{e.preventDefault();if(!allowed('users_manage'))return;const{data,error}=await db.functions.invoke('create-user',{body:{full_name:$('newFullName').value.trim(),email:$('newEmail').value.trim(),password:$('newPassword').value,role:$('newRole').value}});if(error||data?.error)return toast(data?.error||error.message);e.target.reset();toast('تم إنشاء المستخدم');await loadUsers()}
+function openPermissions(id){const u=users.find(x=>x.id===id);$('permUserId').value=id;$('permList').innerHTML=ALL_PERMS.map(p=>`<label class="perm"><input type="checkbox" value="${p}" ${u.permissions?.includes(p)?'checked':''}>${LABELS[p]}</label>`).join('');$('permissionsModal').classList.add('show')}
+function closePermissions(){$('permissionsModal').classList.remove('show')}
+async function savePermissions(){const id=$('permUserId').value,permissions=[...$('permList').querySelectorAll('input:checked')].map(x=>x.value);const{error}=await db.rpc('set_user_permissions',{target_user:id,new_permissions:permissions});if(error)return toast(error.message);closePermissions();toast('تم تحديث الصلاحيات');await loadUsers()}
 
-function editSale(id){const x=sales.find(r=>r.id===id); if(!x)return; editingSale=id;
-  saleDate.value=x.date;saleCustomer.value=x.customer;saleDoctor.value=x.doctor;salePrice.value=x.price;saleCost.value=x.cost;
-  addSaleBtn.textContent='حفظ التعديل';window.scrollTo({top:0,behavior:'smooth'});
-}
-function deleteSale(id){if(confirm('حذف عملية المبيعات؟')){sales=sales.filter(x=>x.id!==id);save()}}
-function editExpense(id){const x=expenses.find(r=>r.id===id);if(!x)return;editingExpense=id;
-  expenseDate.value=x.date;expenseName.value=x.name;expenseAmount.value=x.amount;addExpenseBtn.textContent='حفظ التعديل';window.scrollTo({top:0,behavior:'smooth'});
-}
-function deleteExpense(id){if(confirm('حذف المصروف؟')){expenses=expenses.filter(x=>x.id!==id);save()}}
-
-['salesSearch','salesFrom','salesTo','expensesSearch','expensesFrom','expensesTo','pnlFrom','pnlTo'].forEach(id=>{
-  document.getElementById(id).addEventListener('input',()=>id.startsWith('pnl')?renderPnL():renderAll());
-});
-
-function renderSales(){
-  const q=salesSearch.value.trim().toLowerCase(),from=salesFrom.value,to=salesTo.value;
-  const rows=sales.filter(x=>(!q||x.customer.toLowerCase().includes(q)||x.doctor.toLowerCase().includes(q))&&inRange(x.date,from,to));
-  salesBody.innerHTML=rows.length?rows.sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<tr>
-    <td>${esc(x.date)}</td><td>${esc(x.customer)}</td><td>${esc(x.doctor)}</td>
-    <td class="num">${fmt(x.price)}</td><td class="num">${fmt(x.cost)}</td><td class="num">${fmt(x.price-x.cost)}</td>
-    <td class="no-print"><div class="row-actions"><button class="icon-btn btn-light" onclick="editSale('${x.id}')">تعديل</button><button class="icon-btn btn-danger" onclick="deleteSale('${x.id}')">حذف</button></div></td></tr>`).join(''):`<tr><td colspan="7" class="empty">لا توجد بيانات مبيعات</td></tr>`;
-  salesRevenue.textContent=fmt(rows.reduce((s,x)=>s+x.price,0));salesCost.textContent=fmt(rows.reduce((s,x)=>s+x.cost,0));
-  salesNet.textContent=fmt(rows.reduce((s,x)=>s+x.price-x.cost,0));salesCount.textContent=rows.length;
-}
-function renderExpenses(){
-  const q=expensesSearch.value.trim().toLowerCase(),from=expensesFrom.value,to=expensesTo.value;
-  const rows=expenses.filter(x=>(!q||x.name.toLowerCase().includes(q))&&inRange(x.date,from,to));
-  expensesBody.innerHTML=rows.length?rows.sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<tr>
-    <td>${esc(x.date)}</td><td>${esc(x.name)}</td><td class="num">${fmt(x.amount)}</td>
-    <td class="no-print"><div class="row-actions"><button class="icon-btn btn-light" onclick="editExpense('${x.id}')">تعديل</button><button class="icon-btn btn-danger" onclick="deleteExpense('${x.id}')">حذف</button></div></td></tr>`).join(''):`<tr><td colspan="4" class="empty">لا توجد مصروفات</td></tr>`;
-  expensesTotal.textContent=fmt(rows.reduce((s,x)=>s+x.amount,0));expensesCount.textContent=rows.length;
-}
-function renderPnL(){
-  const from=pnlFrom.value,to=pnlTo.value, ss=sales.filter(x=>inRange(x.date,from,to)), ee=expenses.filter(x=>inRange(x.date,from,to));
-  const revenue=ss.reduce((s,x)=>s+x.price,0),cost=ss.reduce((s,x)=>s+x.cost,0),gross=revenue-cost,exp=ee.reduce((s,x)=>s+x.amount,0),profit=gross-exp;
-  pnlRevenue.textContent=fmt(revenue);pnlCost.textContent=fmt(cost);pnlGross.textContent=fmt(gross);pnlExpenses.textContent=fmt(exp);pnlProfit.textContent=fmt(profit);
-  pnlProfit.className=profit>=0?'positive':'negative';
-}
-function renderAll(){renderSales();renderExpenses();renderPnL()}
-
-function normalizeKey(k){return String(k||'').trim().toLowerCase().replace(/[\s_\-]/g,'')}
-function pick(obj,aliases){const map={};Object.keys(obj).forEach(k=>map[normalizeKey(k)]=obj[k]);for(const a of aliases){const key=normalizeKey(a);if(key in map)return map[key]}return ''}
-async function handleFile(file,type){
-  if(!file)return;
-  try{
-    const data=await file.arrayBuffer(); const wb=XLSX.read(data,{type:'array',cellDates:false});
-    const raw=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
-    let rows=[];
-    if(type==='sales'){
-      rows=raw.map(r=>({id:uid(),date:parseDate(pick(r,['Date','التاريخ'])),customer:String(pick(r,['Customer Name','Customer','اسم العميل'])).trim(),
-        doctor:String(pick(r,['Doctor','اسم الدكتور'])).trim(),price:num(pick(r,['Price','Sales','سعر البيع'])),cost:num(pick(r,['Cost','التكلفة']))}))
-        .filter(r=>r.date&&r.customer);
-    }else{
-      rows=raw.map(r=>({id:uid(),date:parseDate(pick(r,['Date','التاريخ'])),name:String(pick(r,['Expense Name','EXP Name','Name','اسم المصروف'])).trim(),
-        amount:num(pick(r,['Amount','المبلغ']))})).filter(r=>r.date&&r.name);
-    }
-    if(!rows.length){toast('لم يتم العثور على صفوف صحيحة. استخدم النموذج الجاهز.');return}
-    pendingImport={type,rows};showPreview();
-  }catch(e){console.error(e);toast('تعذر قراءة الملف')}
-  file.value='';
-}
-salesFile.onchange=e=>handleFile(e.target.files[0],'sales');
-expensesFile.onchange=e=>handleFile(e.target.files[0],'expenses');
-
-function showPreview(){
-  const {type,rows}=pendingImport; importTitle.textContent=type==='sales'?'معاينة مبيعات Excel':'معاينة مصروفات Excel';
-  importNotice.textContent=`تم العثور على ${rows.length} صف صالح. سيتم عرض أول 50 صف.`;
-  if(type==='sales'){
-    previewHead.innerHTML='<tr><th>Date</th><th>Customer Name</th><th>Doctor</th><th>Price</th><th>Cost</th><th>Net</th></tr>';
-    previewBody.innerHTML=rows.slice(0,50).map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.customer)}</td><td>${esc(x.doctor)}</td><td>${fmt(x.price)}</td><td>${fmt(x.cost)}</td><td>${fmt(x.price-x.cost)}</td></tr>`).join('');
-  }else{
-    previewHead.innerHTML='<tr><th>Date</th><th>Expense Name</th><th>Amount</th></tr>';
-    previewBody.innerHTML=rows.slice(0,50).map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.name)}</td><td>${fmt(x.amount)}</td></tr>`).join('');
-  }
-  importModal.classList.add('show');
-}
-function closeImport(){importModal.classList.remove('show');pendingImport={type:null,rows:[]}}
-function confirmImport(){
-  const mode=document.querySelector('input[name="importMode"]:checked').value;
-  if(pendingImport.type==='sales') sales=mode==='replace'?pendingImport.rows:[...sales,...pendingImport.rows];
-  else expenses=mode==='replace'?pendingImport.rows:[...expenses,...pendingImport.rows];
-  save();closeImport();toast('تم استيراد البيانات بنجاح');
-}
-
-function downloadTemplate(type){
-  const rows=type==='sales'?[{Date:today(),'Customer Name':'Example Customer',Doctor:'Dr. Example',Price:5000,Cost:3200}]
-                           :[{Date:today(),'Expense Name':'Transportation',Amount:500}];
-  const ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,type==='sales'?'Sales':'Expenses');
-  XLSX.writeFile(wb,type==='sales'?'Sales_Template.xlsx':'Expenses_Template.xlsx');
-}
-function exportData(type){
-  const rows=type==='sales'?sales.map(x=>({Date:x.date,'Customer Name':x.customer,Doctor:x.doctor,Price:x.price,Cost:x.cost,Net:x.price-x.cost}))
-                           :expenses.map(x=>({Date:x.date,'Expense Name':x.name,Amount:x.amount}));
-  const ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,type==='sales'?'Sales':'Expenses');
-  XLSX.writeFile(wb,type==='sales'?'Sales_Data.xlsx':'Expenses_Data.xlsx');
-}
-function exportPnL(){
-  const from=pnlFrom.value,to=pnlTo.value,ss=sales.filter(x=>inRange(x.date,from,to)),ee=expenses.filter(x=>inRange(x.date,from,to));
-  const revenue=ss.reduce((s,x)=>s+x.price,0),cost=ss.reduce((s,x)=>s+x.cost,0),gross=revenue-cost,exp=ee.reduce((s,x)=>s+x.amount,0);
-  const rows=[{Item:'Total Revenue',Amount:revenue},{Item:'Total Cost',Amount:cost},{Item:'Gross Profit',Amount:gross},{Item:'Total Expenses',Amount:exp},{Item:'Net Profit',Amount:gross-exp}];
-  const ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'P&L');XLSX.writeFile(wb,'Profit_and_Loss.xlsx');
-}
-renderAll();
+$('salesImportBtn').onclick=()=>$('salesFile').click();$('expensesImportBtn').onclick=()=>$('expensesFile').click();$('salesFile').onchange=e=>readExcel(e.target.files[0],'sales');$('expensesFile').onchange=e=>readExcel(e.target.files[0],'expenses');
+async function readExcel(file,type){if(!file||!allowed('excel_import'))return;const wb=XLSX.read(await file.arrayBuffer(),{type:'array'}),raw=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});let rows;if(type==='sales')rows=raw.map(r=>({sale_date:parseDate(pick(r,['Date','التاريخ'])),customer_name:String(pick(r,['Customer Name','Customer','اسم العميل'])).trim(),doctor_name:String(pick(r,['Doctor','اسم الدكتور'])).trim(),price:num(pick(r,['Price','سعر البيع'])),cost:num(pick(r,['Cost','التكلفة']))})).filter(x=>x.sale_date&&x.customer_name);else rows=raw.map(r=>({expense_date:parseDate(pick(r,['Date','التاريخ'])),expense_name:String(pick(r,['Expense Name','EXP Name','اسم المصروف'])).trim(),amount:num(pick(r,['Amount','المبلغ']))})).filter(x=>x.expense_date&&x.expense_name);if(!rows.length)return toast('لا توجد صفوف صالحة');pendingImport={type,rows};$('importNotice').textContent=`عدد الصفوف الصالحة: ${rows.length}`;if(type==='sales'){$('previewHead').innerHTML='<tr><th>Date</th><th>Customer</th><th>Doctor</th><th>Price</th><th>Cost</th></tr>';$('previewBody').innerHTML=rows.slice(0,50).map(x=>`<tr><td>${x.sale_date}</td><td>${esc(x.customer_name)}</td><td>${esc(x.doctor_name)}</td><td>${fmt(x.price)}</td><td>${fmt(x.cost)}</td></tr>`).join('')}else{$('previewHead').innerHTML='<tr><th>Date</th><th>Expense</th><th>Amount</th></tr>';$('previewBody').innerHTML=rows.slice(0,50).map(x=>`<tr><td>${x.expense_date}</td><td>${esc(x.expense_name)}</td><td>${fmt(x.amount)}</td></tr>`).join('')}$('importModal').classList.add('show');eTargetClear(type)}
+function eTargetClear(type){$(type==='sales'?'salesFile':'expensesFile').value=''}function closeImport(){$('importModal').classList.remove('show');pendingImport={type:null,rows:[]}}
+async function confirmImport(){const table=pendingImport.type==='sales'?'sales':'expenses';const{error}=await db.from(table).insert(pendingImport.rows);if(error)return toast(error.message);closeImport();pendingImport.type==='sales'?await loadSales():await loadExpenses();renderPnL();toast('تم الاستيراد')}
+function downloadTemplate(type){if(!allowed('excel_export'))return;const r=type==='sales'?[{Date:today(),'Customer Name':'Example Customer',Doctor:'Dr. Example',Price:5000,Cost:3200}]:[{Date:today(),'Expense Name':'Transportation',Amount:500}],ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,type);XLSX.writeFile(wb,`${type}_template.xlsx`)}
+function exportData(type){if(!allowed('excel_export'))return;const r=type==='sales'?sales.map(x=>({Date:x.sale_date,'Customer Name':x.customer_name,Doctor:x.doctor_name,Price:x.price,Cost:x.cost,Net:x.price-x.cost})):expenses.map(x=>({Date:x.expense_date,'Expense Name':x.expense_name,Amount:x.amount})),ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,type);XLSX.writeFile(wb,`${type}_data.xlsx`)}
+function exportPnL(){if(!allowed('excel_export'))return;const f=$('pnlFrom').value,t=$('pnlTo').value,ss=sales.filter(x=>inRange(x.sale_date,f,t)),ee=expenses.filter(x=>inRange(x.expense_date,f,t)),rev=ss.reduce((s,x)=>s+num(x.price),0),cost=ss.reduce((s,x)=>s+num(x.cost),0),gross=rev-cost,exp=ee.reduce((s,x)=>s+num(x.amount),0),r=[{Item:'Total Revenue',Amount:rev},{Item:'Total Cost',Amount:cost},{Item:'Gross Profit',Amount:gross},{Item:'Total Expenses',Amount:exp},{Item:'Net Profit',Amount:gross-exp}],ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'P&L');XLSX.writeFile(wb,'Profit_and_Loss.xlsx')}
+init();
 </script>
 </body>
 </html>

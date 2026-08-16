@@ -232,6 +232,7 @@
             <button class="btn btn-light" id="salesImportBtn" data-action-perm="excel_import">رفع Excel</button><input type="file" id="salesFile" accept=".xlsx,.xls,.csv" hidden>
             <button class="btn btn-success" onclick="downloadTemplate('sales')" data-action-perm="excel_export">Excel Template</button>
             <button class="btn btn-light" onclick="exportData('sales')" data-action-perm="excel_export">Export</button>
+            <button class="btn btn-danger" onclick="clearAllSales()" data-action-perm="sales_delete">مسح كل المبيعات</button>
             <div class="field"><label>Search</label><input id="salesSearch"></div>
             <div class="field"><label>From</label><input type="date" id="salesFrom"></div><div class="field"><label>To</label><input type="date" id="salesTo"></div>
           </div>
@@ -254,6 +255,7 @@
             <button class="btn btn-light" id="expensesImportBtn" data-action-perm="excel_import">رفع Excel</button><input type="file" id="expensesFile" accept=".xlsx,.xls,.csv" hidden>
             <button class="btn btn-success" onclick="downloadTemplate('expenses')" data-action-perm="excel_export">Excel Template</button>
             <button class="btn btn-light" onclick="exportData('expenses')" data-action-perm="excel_export">Export</button>
+            <button class="btn btn-danger" onclick="clearAllExpenses()" data-action-perm="expenses_delete">مسح كل المصروفات</button>
             <div class="field"><label>Search</label><input id="expensesSearch"></div>
             <div class="field"><label>From</label><input type="date" id="expensesFrom"></div><div class="field"><label>To</label><input type="date" id="expensesTo"></div>
           </div>
@@ -378,6 +380,29 @@ function editSale(id){if(!allowed('sales_edit'))return;const x=sales.find(r=>r.i
 async function deleteSale(id){if(!allowed('sales_delete')||!confirm('حذف العملية؟'))return;const{error}=await db.from('sales').delete().eq('id',id);if(error)return toast(error.message);await loadSales();renderPnL()}
 function editExpense(id){if(!allowed('expenses_edit'))return;const x=expenses.find(r=>r.id===id);editExpenseId=id;$('expenseDate').value=x.expense_date;$('expenseName').value=x.expense_name;$('expenseCost').value=expenseBaseCost(x);$('expenseVat').value=x.vat||0;$('expenseNet').value=num(x.net)||expenseBaseCost(x)*(1+num(x.vat)/100);$('saveExpenseBtn').textContent='حفظ التعديل';scrollTo({top:0,behavior:'smooth'})}
 async function deleteExpense(id){if(!allowed('expenses_delete')||!confirm('حذف المصروف؟'))return;const{error}=await db.from('expenses').delete().eq('id',id);if(error)return toast(error.message);await loadExpenses()}
+
+async function clearAllSales(){
+  if(!allowed('sales_delete')){toast('لا توجد صلاحية لمسح المبيعات');return}
+  if(!sales.length){toast('لا توجد بيانات مبيعات للمسح');return}
+  if(!confirm(`سيتم حذف كل بيانات Sales وعددها ${sales.length} عملية. هل أنت متأكد؟`))return;
+  if(!confirm('تأكيد أخير: لا يمكن التراجع عن المسح. هل تريد الاستمرار؟'))return;
+  const {error}=await db.from('sales').delete().eq('company_id',ctx.company_id);
+  if(error){toast('فشل مسح المبيعات: '+error.message);return}
+  await loadSales(); renderPnL(); renderDashboard();
+  toast('تم مسح كل بيانات Sales');
+}
+
+async function clearAllExpenses(){
+  if(!allowed('expenses_delete')){toast('لا توجد صلاحية لمسح المصروفات');return}
+  if(!expenses.length){toast('لا توجد بيانات مصروفات للمسح');return}
+  if(!confirm(`سيتم حذف كل بيانات Expenses وعددها ${expenses.length} عملية. هل أنت متأكد؟`))return;
+  if(!confirm('تأكيد أخير: لا يمكن التراجع عن المسح. هل تريد الاستمرار؟'))return;
+  const {error}=await db.from('expenses').delete().eq('company_id',ctx.company_id);
+  if(error){toast('فشل مسح المصروفات: '+error.message);return}
+  await loadExpenses(); renderPnL(); renderDashboard();
+  toast('تم مسح كل بيانات Expenses');
+}
+
 function renderSales(){const q=$('salesSearch').value.toLowerCase(),f=$('salesFrom').value,t=$('salesTo').value,r=sales.filter(x=>(!q||x.customer_name.toLowerCase().includes(q)||(x.doctor_name||'').toLowerCase().includes(q))&&inRange(x.sale_date,f,t));$('salesBody').innerHTML=r.length?r.map(x=>`<tr><td>${x.sale_date}</td><td>${esc(x.customer_name)}</td><td>${esc(x.doctor_name)}</td><td>${fmt(x.price)}</td><td>${fmt(x.vat)}</td><td>${fmt(num(x.net)||num(x.price)*(1+num(x.vat)/100))}</td><td><div class="actions">${allowed('sales_edit')?`<button class="btn btn-light" onclick="editSale('${x.id}')">تعديل</button>`:''}${allowed('sales_delete')?`<button class="btn btn-danger" onclick="deleteSale('${x.id}')">حذف</button>`:''}</div></td></tr>`).join(''):'<tr><td colspan="7" class="empty">لا توجد بيانات</td></tr>';$('salesRevenue').textContent=fmt(r.reduce((s,x)=>s+num(x.price),0));$('salesVatTotal').textContent=fmt(r.reduce((s,x)=>s+num(x.vat),0));$('salesNet').textContent=fmt(r.reduce((s,x)=>s+(num(x.net)||num(x.price)*(1+num(x.vat)/100)),0));$('salesCount').textContent=r.length}
 function renderExpenses(){const q=$('expensesSearch').value.toLowerCase(),f=$('expensesFrom').value,t=$('expensesTo').value,r=expenses.filter(x=>(!q||x.expense_name.toLowerCase().includes(q))&&inRange(x.expense_date,f,t));$('expensesBody').innerHTML=r.length?r.map(x=>`<tr><td>${x.expense_date}</td><td>${esc(x.expense_name)}</td><td>${fmt(x.amount)}</td><td><div class="actions">${allowed('expenses_edit')?`<button class="btn btn-light" onclick="editExpense('${x.id}')">تعديل</button>`:''}${allowed('expenses_delete')?`<button class="btn btn-danger" onclick="deleteExpense('${x.id}')">حذف</button>`:''}</div></td></tr>`).join(''):'<tr><td colspan="4" class="empty">لا توجد بيانات</td></tr>';$('expensesTotal').textContent=fmt(r.reduce((s,x)=>s+num(x.amount),0));$('expensesCount').textContent=r.length}
 

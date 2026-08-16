@@ -338,6 +338,20 @@ const LABELS={dashboard_view:'عرض Dashboard',audit_view:'عرض سجل الح
 const $=id=>document.getElementById(id), today=()=>new Date().toISOString().slice(0,10), num=v=>Number(String(v??'').replace(/,/g,''))||0, fmt=n=>new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(num(n));
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const expenseBaseCost=x=>num(x.cost)||num(x.amount);
+const normalizedVatPercent=(base,vat)=>{
+  base=num(base); vat=num(vat);
+  if(!base||!vat) return vat;
+  // VAT should normally be a percentage such as 14.
+  // Legacy records sometimes stored VAT as a money amount.
+  if(vat>30) return (vat/base)*100;
+  return vat;
+};
+const saleVatPercent=x=>normalizedVatPercent(x.price,x.vat);
+const expenseVatPercent=x=>normalizedVatPercent(expenseBaseCost(x),x.vat);
+const saleVatAmount=x=>num(x.price)*saleVatPercent(x)/100;
+const expenseVatAmount=x=>expenseBaseCost(x)*expenseVatPercent(x)/100;
+const saleNetValue=x=>num(x.price)+saleVatAmount(x);
+const expenseNetValue=x=>expenseBaseCost(x)+expenseVatAmount(x);
 const allowed=p=>ctx?.permissions?.includes(p)||ctx?.role==='owner';
 function toast(m){$('toast').textContent=m;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2200)}
 function show(id){['setupScreen','loginScreen','blockedScreen','appScreen'].forEach(x=>$(x).classList.add('hidden'));$(id).classList.remove('hidden')}
@@ -376,9 +390,9 @@ async function loadSales(){const {data,error}=await db.from('sales').select('*')
 async function loadExpenses(){const {data,error}=await db.from('expenses').select('*').order('expense_date',{ascending:false});if(error){toast(error.message);return}expenses=data||[];renderExpenses();renderPnL();renderDashboard()}
 $('saleForm').onsubmit=async e=>{e.preventDefault();const row={sale_date:$('saleDate').value,customer_name:$('saleCustomer').value.trim(),doctor_name:$('saleDoctor').value.trim(),price:num($('salePrice').value),vat:num($('saleVat').value),net:num($('salePrice').value)*(1+num($('saleVat').value)/100)};let res;if(editSaleId){if(!allowed('sales_edit'))return toast('لا توجد صلاحية');res=await db.from('sales').update(row).eq('id',editSaleId)}else{if(!allowed('sales_add'))return toast('لا توجد صلاحية');res=await db.from('sales').insert(row)}if(res.error)return toast(res.error.message);editSaleId=null;$('saveSaleBtn').textContent='إضافة';['saleCustomer','saleDoctor','salePrice','saleVat','saleNet'].forEach(id=>$(id).value='');await loadSales();renderPnL();toast('تم الحفظ')};
 $('expenseForm').onsubmit=async e=>{e.preventDefault();const row={expense_date:$('expenseDate').value,expense_name:$('expenseName').value.trim(),cost:num($('expenseCost').value),vat:num($('expenseVat').value),net:num($('expenseCost').value)*(1+num($('expenseVat').value)/100)};let res;if(editExpenseId){if(!allowed('expenses_edit'))return toast('لا توجد صلاحية');res=await db.from('expenses').update(row).eq('id',editExpenseId)}else{if(!allowed('expenses_add'))return toast('لا توجد صلاحية');res=await db.from('expenses').insert(row)}if(res.error)return toast(res.error.message);editExpenseId=null;$('saveExpenseBtn').textContent='إضافة';['expenseName','expenseCost','expenseVat','expenseNet'].forEach(id=>$(id).value='');await loadExpenses();toast('تم الحفظ')};
-function editSale(id){if(!allowed('sales_edit'))return;const x=sales.find(r=>r.id===id);editSaleId=id;$('saleDate').value=x.sale_date;$('saleCustomer').value=x.customer_name;$('saleDoctor').value=x.doctor_name||'';$('salePrice').value=x.price;$('saleVat').value=x.vat||0;$('saleNet').value=num(x.net)||num(x.price)*(1+num(x.vat)/100);$('saveSaleBtn').textContent='حفظ التعديل';scrollTo({top:0,behavior:'smooth'})}
+function editSale(id){if(!allowed('sales_edit'))return;const x=sales.find(r=>r.id===id);editSaleId=id;$('saleDate').value=x.sale_date;$('saleCustomer').value=x.customer_name;$('saleDoctor').value=x.doctor_name||'';$('salePrice').value=x.price;$('saleVat').value=saleVatPercent(x);$('saleNet').value=saleNetValue(x);$('saveSaleBtn').textContent='حفظ التعديل';scrollTo({top:0,behavior:'smooth'})}
 async function deleteSale(id){if(!allowed('sales_delete')||!confirm('حذف العملية؟'))return;const{error}=await db.from('sales').delete().eq('id',id);if(error)return toast(error.message);await loadSales();renderPnL()}
-function editExpense(id){if(!allowed('expenses_edit'))return;const x=expenses.find(r=>r.id===id);editExpenseId=id;$('expenseDate').value=x.expense_date;$('expenseName').value=x.expense_name;$('expenseCost').value=expenseBaseCost(x);$('expenseVat').value=x.vat||0;$('expenseNet').value=num(x.net)||expenseBaseCost(x)*(1+num(x.vat)/100);$('saveExpenseBtn').textContent='حفظ التعديل';scrollTo({top:0,behavior:'smooth'})}
+function editExpense(id){if(!allowed('expenses_edit'))return;const x=expenses.find(r=>r.id===id);editExpenseId=id;$('expenseDate').value=x.expense_date;$('expenseName').value=x.expense_name;$('expenseCost').value=expenseBaseCost(x);$('expenseVat').value=expenseVatPercent(x);$('expenseNet').value=num(x.net)||expenseBaseCost(x)*(1+num(x.vat)/100);$('saveExpenseBtn').textContent='حفظ التعديل';scrollTo({top:0,behavior:'smooth'})}
 async function deleteExpense(id){if(!allowed('expenses_delete')||!confirm('حذف المصروف؟'))return;const{error}=await db.from('expenses').delete().eq('id',id);if(error)return toast(error.message);await loadExpenses()}
 
 async function clearAllSales(){
@@ -403,7 +417,19 @@ async function clearAllExpenses(){
   toast('تم مسح كل بيانات Expenses');
 }
 
-function renderSales(){const q=$('salesSearch').value.toLowerCase(),f=$('salesFrom').value,t=$('salesTo').value,r=sales.filter(x=>(!q||x.customer_name.toLowerCase().includes(q)||(x.doctor_name||'').toLowerCase().includes(q))&&inRange(x.sale_date,f,t));$('salesBody').innerHTML=r.length?r.map(x=>`<tr><td>${x.sale_date}</td><td>${esc(x.customer_name)}</td><td>${esc(x.doctor_name)}</td><td>${fmt(x.price)}</td><td>${fmt(x.vat)}</td><td>${fmt(num(x.net)||num(x.price)*(1+num(x.vat)/100))}</td><td><div class="actions">${allowed('sales_edit')?`<button class="btn btn-light" onclick="editSale('${x.id}')">تعديل</button>`:''}${allowed('sales_delete')?`<button class="btn btn-danger" onclick="deleteSale('${x.id}')">حذف</button>`:''}</div></td></tr>`).join(''):'<tr><td colspan="7" class="empty">لا توجد بيانات</td></tr>';$('salesRevenue').textContent=fmt(r.reduce((s,x)=>s+num(x.price),0));$('salesVatTotal').textContent=fmt(r.reduce((s,x)=>s+num(x.vat),0));$('salesNet').textContent=fmt(r.reduce((s,x)=>s+(num(x.net)||num(x.price)*(1+num(x.vat)/100)),0));$('salesCount').textContent=r.length}
+function renderSales(){
+  const q=$('salesSearch').value.toLowerCase(),f=$('salesFrom').value,t=$('salesTo').value;
+  const r=sales.filter(x=>(!q||x.customer_name.toLowerCase().includes(q)||(x.doctor_name||'').toLowerCase().includes(q))&&inRange(x.sale_date,f,t));
+  $('salesBody').innerHTML=r.length?r.map(x=>`<tr>
+    <td>${x.sale_date}</td><td>${esc(x.customer_name)}</td><td>${esc(x.doctor_name)}</td>
+    <td>${fmt(x.price)}</td><td>${fmt(saleVatPercent(x))}%</td><td>${fmt(saleNetValue(x))}</td>
+    <td><div class="actions">${allowed('sales_edit')?`<button class="btn btn-light" onclick="editSale('${x.id}')">تعديل</button>`:''}${allowed('sales_delete')?`<button class="btn btn-danger" onclick="deleteSale('${x.id}')">حذف</button>`:''}</div></td>
+  </tr>`).join(''):'<tr><td colspan="7" class="empty">لا توجد بيانات</td></tr>';
+  $('salesRevenue').textContent=fmt(r.reduce((s,x)=>s+num(x.price),0));
+  $('salesVatTotal').textContent=fmt(r.reduce((s,x)=>s+saleVatAmount(x),0));
+  $('salesNet').textContent=fmt(r.reduce((s,x)=>s+saleNetValue(x),0));
+  $('salesCount').textContent=r.length;
+}
 function renderExpenses(){const q=$('expensesSearch').value.toLowerCase(),f=$('expensesFrom').value,t=$('expensesTo').value,r=expenses.filter(x=>(!q||x.expense_name.toLowerCase().includes(q))&&inRange(x.expense_date,f,t));$('expensesBody').innerHTML=r.length?r.map(x=>`<tr><td>${x.expense_date}</td><td>${esc(x.expense_name)}</td><td>${fmt(x.amount)}</td><td><div class="actions">${allowed('expenses_edit')?`<button class="btn btn-light" onclick="editExpense('${x.id}')">تعديل</button>`:''}${allowed('expenses_delete')?`<button class="btn btn-danger" onclick="deleteExpense('${x.id}')">حذف</button>`:''}</div></td></tr>`).join(''):'<tr><td colspan="4" class="empty">لا توجد بيانات</td></tr>';$('expensesTotal').textContent=fmt(r.reduce((s,x)=>s+num(x.amount),0));$('expensesCount').textContent=r.length}
 
 function renderDashboard(){
@@ -581,7 +607,7 @@ async function confirmImport(){
   toast(`تم استيراد ${count} صف بنجاح`);
 }
 function downloadTemplate(type){if(!allowed('excel_export'))return;const r=type==='sales'?[{Date:today(),'Customer Name':'Example Customer',Doctor:'Dr. Example',Price:5000,'VAT %':14,Net:5700}]:[{Date:today(),'Expense Name':'Transportation',Cost:500,'VAT %':14,Net:570}],ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,type);XLSX.writeFile(wb,`${type}_template.xlsx`)}
-function exportData(type){if(!allowed('excel_export'))return;const r=type==='sales'?sales.map(x=>({Date:x.sale_date,'Customer Name':x.customer_name,Doctor:x.doctor_name,Price:x.price,'VAT %':x.vat,Net:num(x.net)||num(x.price)*(1+num(x.vat)/100)})):expenses.map(x=>({Date:x.expense_date,'Expense Name':x.expense_name,Cost:expenseBaseCost(x),'VAT %':x.vat,Net:num(x.net)||expenseBaseCost(x)*(1+num(x.vat)/100)})),ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,type);XLSX.writeFile(wb,`${type}_data.xlsx`)}
+function exportData(type){if(!allowed('excel_export'))return;const r=type==='sales'?sales.map(x=>({Date:x.sale_date,'Customer Name':x.customer_name,Doctor:x.doctor_name,Price:x.price,'VAT %':saleVatPercent(x),Net:saleNetValue(x)})):expenses.map(x=>({Date:x.expense_date,'Expense Name':x.expense_name,Cost:expenseBaseCost(x),'VAT %':x.vat,Net:num(x.net)||expenseBaseCost(x)*(1+num(x.vat)/100)})),ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,type);XLSX.writeFile(wb,`${type}_data.xlsx`)}
 function exportPnL(){if(!allowed('excel_export'))return;const f=$('pnlFrom').value,t=$('pnlTo').value,ss=sales.filter(x=>inRange(x.sale_date,f,t)),ee=expenses.filter(x=>inRange(x.expense_date,f,t)),rev=ss.reduce((s,x)=>s+num(x.price),0),cost=ss.reduce((s,x)=>s+num(x.cost),0),gross=rev-cost,exp=ee.reduce((s,x)=>s+num(x.amount),0),r=[{Item:'Total Revenue',Amount:rev},{Item:'Total Cost',Amount:cost},{Item:'Gross Profit',Amount:gross},{Item:'Total Expenses',Amount:exp},{Item:'Net Profit',Amount:gross-exp}],ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'P&L');XLSX.writeFile(wb,'Profit_and_Loss.xlsx')}
 
 ['dashboardFrom','dashboardTo'].forEach(id=>$(id).oninput=renderDashboard);

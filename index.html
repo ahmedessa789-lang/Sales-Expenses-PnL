@@ -451,10 +451,98 @@ function openPermissions(id){const u=users.find(x=>x.id===id);$('permUserId').va
 function closePermissions(){$('permissionsModal').classList.remove('show')}
 async function savePermissions(){const id=$('permUserId').value,permissions=[...$('permList').querySelectorAll('input:checked')].map(x=>x.value);const{error}=await db.rpc('set_user_permissions',{target_user:id,new_permissions:permissions});if(error)return toast(error.message);closePermissions();toast('تم تحديث الصلاحيات');await loadUsers()}
 
-$('salesImportBtn').onclick=()=>$('salesFile').click();$('expensesImportBtn').onclick=()=>$('expensesFile').click();$('salesFile').onchange=e=>readExcel(e.target.files[0],'sales');$('expensesFile').onchange=e=>readExcel(e.target.files[0],'expenses');
-async function readExcel(file,type){if(!file||!allowed('excel_import'))return;const wb=XLSX.read(await file.arrayBuffer(),{type:'array'}),raw=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});let rows;if(type==='sales')rows=raw.map(r=>({sale_date:parseDate(pick(r,['Date','التاريخ'])),customer_name:String(pick(r,['Customer Name','Customer','اسم العميل'])).trim(),doctor_name:String(pick(r,['Doctor','اسم الدكتور'])).trim(),price:num(pick(r,['Price','سعر البيع'])),vat:num(pick(r,['VAT','Vat','VAT %','الضريبة'])),net:num(pick(r,['Net','صافي']))||num(pick(r,['Price','سعر البيع']))*(1+num(pick(r,['VAT','Vat','VAT %','الضريبة']))/100)})).filter(x=>x.sale_date&&x.customer_name);else rows=raw.map(r=>({expense_date:parseDate(pick(r,['Date','التاريخ'])),expense_name:String(pick(r,['Expense Name','EXP Name','اسم المصروف'])).trim(),cost:num(pick(r,['Cost','التكلفة'])),vat:num(pick(r,['VAT','Vat','VAT %','الضريبة'])),net:num(pick(r,['Net','صافي']))||num(pick(r,['Cost','التكلفة']))*(1+num(pick(r,['VAT','Vat','VAT %','الضريبة']))/100)})).filter(x=>x.expense_date&&x.expense_name);if(!rows.length)return toast('لا توجد صفوف صالحة');pendingImport={type,rows};$('importNotice').textContent=`عدد الصفوف الصالحة: ${rows.length}`;if(type==='sales'){$('previewHead').innerHTML='<tr><th>Date</th><th>Customer</th><th>Doctor</th><th>Price</th><th>Cost</th></tr>';$('previewBody').innerHTML=rows.slice(0,50).map(x=>`<tr><td>${x.sale_date}</td><td>${esc(x.customer_name)}</td><td>${esc(x.doctor_name)}</td><td>${fmt(x.price)}</td><td>${fmt(x.cost)}</td></tr>`).join('')}else{$('previewHead').innerHTML='<tr><th>Date</th><th>Expense</th><th>Amount</th></tr>';$('previewBody').innerHTML=rows.slice(0,50).map(x=>`<tr><td>${x.expense_date}</td><td>${esc(x.expense_name)}</td><td>${fmt(x.amount)}</td></tr>`).join('')}$('importModal').classList.add('show');eTargetClear(type)}
+$('salesImportBtn').onclick=()=>{ $('salesFile').value=''; $('salesFile').click(); };$('expensesImportBtn').onclick=()=>{ $('expensesFile').value=''; $('expensesFile').click(); };$('salesFile').onchange=e=>readExcel(e.target.files[0],'sales');$('expensesFile').onchange=e=>readExcel(e.target.files[0],'expenses');
+async function readExcel(file,type){
+  if(!file) return;
+  if(!allowed('excel_import')){toast('لا توجد صلاحية لرفع Excel');return}
+  try{
+    const data=await file.arrayBuffer();
+    const wb=XLSX.read(data,{type:'array',cellDates:false});
+    const sheet=wb.Sheets[wb.SheetNames[0]];
+    const raw=XLSX.utils.sheet_to_json(sheet,{defval:'',raw:true});
+
+    let rows=[];
+    if(type==='sales'){
+      rows=raw.map((r,i)=>{
+        const date=parseDate(pick(r,['Date','التاريخ']));
+        const customer=String(pick(r,['Customer Name','Customer','اسم العميل'])).trim();
+        const doctor=String(pick(r,['Doctor','اسم الدكتور'])).trim();
+        const price=num(pick(r,['Price','سعر البيع']));
+        const vat=num(pick(r,['VAT %','VAT','Vat','الضريبة']));
+        return {
+          _row:i+2,
+          sale_date:date,
+          customer_name:customer,
+          doctor_name:doctor,
+          price,
+          vat
+        };
+      }).filter(x=>x.sale_date&&x.customer_name);
+    }else{
+      rows=raw.map((r,i)=>{
+        const date=parseDate(pick(r,['Date','التاريخ']));
+        const name=String(pick(r,['Expense Name','EXP Name','اسم المصروف'])).trim();
+        const cost=num(pick(r,['Cost','التكلفة']));
+        const vat=num(pick(r,['VAT %','VAT','Vat','الضريبة']));
+        return {
+          _row:i+2,
+          expense_date:date,
+          expense_name:name,
+          cost,
+          vat
+        };
+      }).filter(x=>x.expense_date&&x.expense_name);
+    }
+
+    if(!rows.length){
+      toast('لم يتم العثور على صفوف صالحة. تأكد من أسماء الأعمدة والتاريخ.');
+      eTargetClear(type);
+      return;
+    }
+
+    pendingImport={type,rows};
+    $('importNotice').textContent=`تم العثور على ${rows.length} صف صالح. راجع المعاينة ثم اضغط Import.`;
+
+    if(type==='sales'){
+      $('previewHead').innerHTML='<tr><th>Date</th><th>Customer</th><th>Doctor</th><th>Price</th><th>VAT %</th><th>Net</th></tr>';
+      $('previewBody').innerHTML=rows.slice(0,50).map(x=>{
+        const net=num(x.price)*(1+num(x.vat)/100);
+        return `<tr><td>${x.sale_date}</td><td>${esc(x.customer_name)}</td><td>${esc(x.doctor_name)}</td><td>${fmt(x.price)}</td><td>${fmt(x.vat)}</td><td>${fmt(net)}</td></tr>`;
+      }).join('');
+    }else{
+      $('previewHead').innerHTML='<tr><th>Date</th><th>Expense</th><th>Cost</th><th>VAT %</th><th>Net</th></tr>';
+      $('previewBody').innerHTML=rows.slice(0,50).map(x=>{
+        const net=num(x.cost)*(1+num(x.vat)/100);
+        return `<tr><td>${x.expense_date}</td><td>${esc(x.expense_name)}</td><td>${fmt(x.cost)}</td><td>${fmt(x.vat)}</td><td>${fmt(net)}</td></tr>`;
+      }).join('');
+    }
+
+    $('importModal').classList.add('show');
+    eTargetClear(type);
+  }catch(err){
+    console.error(err);
+    toast('تعذر قراءة ملف Excel: '+(err?.message||'Unknown error'));
+    eTargetClear(type);
+  }
+}
 function eTargetClear(type){$(type==='sales'?'salesFile':'expensesFile').value=''}function closeImport(){$('importModal').classList.remove('show');pendingImport={type:null,rows:[]}}
-async function confirmImport(){const table=pendingImport.type==='sales'?'sales':'expenses';const{error}=await db.from(table).insert(pendingImport.rows);if(error)return toast(error.message);closeImport();pendingImport.type==='sales'?await loadSales():await loadExpenses();renderPnL();toast('تم الاستيراد')}
+async function confirmImport(){
+  if(!pendingImport.type||!pendingImport.rows?.length){toast('لا توجد بيانات للاستيراد');return}
+  const table=pendingImport.type==='sales'?'sales':'expenses';
+  const rows=pendingImport.rows.map(({_row,...r})=>r);
+  const {data,error}=await db.from(table).insert(rows).select();
+  if(error){
+    console.error(error);
+    toast('فشل الاستيراد: '+error.message);
+    return;
+  }
+  const count=data?.length||rows.length;
+  const importedType=pendingImport.type;
+  closeImport();
+  if(importedType==='sales') await loadSales(); else await loadExpenses();
+  renderPnL();renderDashboard();
+  toast(`تم استيراد ${count} صف بنجاح`);
+}
 function downloadTemplate(type){if(!allowed('excel_export'))return;const r=type==='sales'?[{Date:today(),'Customer Name':'Example Customer',Doctor:'Dr. Example',Price:5000,'VAT %':14,Net:5700}]:[{Date:today(),'Expense Name':'Transportation',Cost:500,'VAT %':14,Net:570}],ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,type);XLSX.writeFile(wb,`${type}_template.xlsx`)}
 function exportData(type){if(!allowed('excel_export'))return;const r=type==='sales'?sales.map(x=>({Date:x.sale_date,'Customer Name':x.customer_name,Doctor:x.doctor_name,Price:x.price,'VAT %':x.vat,Net:num(x.net)||num(x.price)*(1+num(x.vat)/100)})):expenses.map(x=>({Date:x.expense_date,'Expense Name':x.expense_name,Cost:x.cost,'VAT %':x.vat,Net:num(x.net)||num(x.cost)*(1+num(x.vat)/100)})),ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,type);XLSX.writeFile(wb,`${type}_data.xlsx`)}
 function exportPnL(){if(!allowed('excel_export'))return;const f=$('pnlFrom').value,t=$('pnlTo').value,ss=sales.filter(x=>inRange(x.sale_date,f,t)),ee=expenses.filter(x=>inRange(x.expense_date,f,t)),rev=ss.reduce((s,x)=>s+num(x.price),0),cost=ss.reduce((s,x)=>s+num(x.cost),0),gross=rev-cost,exp=ee.reduce((s,x)=>s+num(x.amount),0),r=[{Item:'Total Revenue',Amount:rev},{Item:'Total Cost',Amount:cost},{Item:'Gross Profit',Amount:gross},{Item:'Total Expenses',Amount:exp},{Item:'Net Profit',Amount:gross-exp}],ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'P&L');XLSX.writeFile(wb,'Profit_and_Loss.xlsx')}

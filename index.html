@@ -263,7 +263,7 @@
 
       <section id="pnl" class="section">
         <div class="toolbar"><div class="field"><label>From</label><input type="date" id="pnlFrom"></div><div class="field"><label>To</label><input type="date" id="pnlTo"></div><button class="btn btn-light" onclick="window.print()">Print</button><button class="btn btn-success" onclick="exportPnL()" data-action-perm="excel_export">Export P&L</button></div>
-        <div class="panel pnl"><h2>Profit & Loss Statement</h2><div class="pnl-line"><span>Net Sales</span><strong id="pnlNetSales">0.00</strong></div><div class="pnl-line"><span>Net Cost</span><strong id="pnlNetCost">0.00</strong></div><div class="pnl-line total"><span>Net Profit</span><strong id="pnlProfit">0.00</strong></div></div>
+        <div class="panel pnl"><h2>Profit & Loss Statement</h2><div class="pnl-line"><span>Net Sales (Excluding VAT)</span><strong id="pnlNetSales">0.00</strong></div><div class="pnl-line"><span>Net Cost (Excluding VAT)</span><strong id="pnlNetCost">0.00</strong></div><div class="pnl-line total"><span>Net Profit</span><strong id="pnlProfit">0.00</strong></div></div>
       </section>
 
       <section id="users" class="section">
@@ -412,7 +412,18 @@ function renderDashboard(){
   $('recentExpensesBody').innerHTML=recentE.length?recentE.map(x=>`<tr><td>${x.expense_date}</td><td>${esc(x.expense_name)}</td><td>${fmt(x.amount)}</td></tr>`).join(''):'<tr><td colspan="3" class="empty">No expense data</td></tr>';
 }
 
-function renderPnL(){const f=$('pnlFrom').value,t=$('pnlTo').value,ss=sales.filter(x=>inRange(x.sale_date,f,t)),ee=expenses.filter(x=>inRange(x.expense_date,f,t));const netSales=ss.reduce((s,x)=>s+(num(x.net)||num(x.price)*(1+num(x.vat)/100)),0),netCost=ee.reduce((s,x)=>s+(num(x.net)||num(x.cost)*(1+num(x.vat)/100)),0),profit=netSales-netCost;$('pnlNetSales').textContent=fmt(netSales);$('pnlNetCost').textContent=fmt(netCost);$('pnlProfit').textContent=fmt(profit);$('pnlProfit').className=profit>=0?'positive':'negative'}
+function renderPnL(){
+  const f=$('pnlFrom').value,t=$('pnlTo').value;
+  const ss=sales.filter(x=>inRange(x.sale_date,f,t));
+  const ee=expenses.filter(x=>inRange(x.expense_date,f,t));
+  const netSales=ss.reduce((s,x)=>s+num(x.price),0);
+  const netCost=ee.reduce((s,x)=>s+num(x.cost),0);
+  const profit=netSales-netCost;
+  $('pnlNetSales').textContent=fmt(netSales);
+  $('pnlNetCost').textContent=fmt(netCost);
+  $('pnlProfit').textContent=fmt(profit);
+  $('pnlProfit').className=profit>=0?'positive':'negative';
+}
 ['salesSearch','salesFrom','salesTo'].forEach(id=>$(id).oninput=renderSales);['expensesSearch','expensesFrom','expensesTo'].forEach(id=>$(id).oninput=renderExpenses);['pnlFrom','pnlTo'].forEach(id=>$(id).oninput=renderPnL);
 
 

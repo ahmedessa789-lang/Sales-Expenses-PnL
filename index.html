@@ -340,9 +340,8 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&
 const expenseBaseCost=x=>num(x.cost)||num(x.amount);
 const normalizedVatPercent=(base,vat)=>{
   base=num(base); vat=num(vat);
-  if(!base||!vat) return vat;
-  // VAT should normally be a percentage such as 14.
-  // Legacy records sometimes stored VAT as a money amount.
+  if(!vat) return 0;
+  if(!base) return vat;
   if(vat>30) return (vat/base)*100;
   return vat;
 };

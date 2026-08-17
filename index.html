@@ -278,7 +278,23 @@
           <h2>Users & Permissions</h2>
           <div class="message info">إنشاء المستخدم يتم من خلال Edge Function الآمنة الموجودة داخل الحزمة.</div>
           <form id="newUserForm" class="toolbar">
-            <div class="field"><label>Full Name</label><input id="newFullName" required></div><div class="field"><label>Email</label><input type="email" id="newEmail" required></div><div class="field"><label>Temporary Password</label><input type="password" id="newPassword" minlength="8" required></div><div class="field"><label>Role</label><select id="newRole"><option value="finance">Finance</option><option value="cfo">CFO</option></select></div><button class="btn btn-primary">Create User</button>
+            <div class="field"><label>Full Name</label><input id="newFullName" required></div>
+            <div class="field"><label>Email</label><input type="email" id="newEmail" required></div>
+            <div class="field"><label>Temporary Password</label><input type="password" id="newPassword" minlength="8" required></div>
+            <div class="field">
+              <label>Role</label>
+              <select id="newRole">
+                <option value="finance">Finance</option>
+                <option value="cfo">CFO</option>
+              </select>
+            </div>
+
+            <div style="flex-basis:100%;width:100%">
+              <div style="font-weight:700;margin-bottom:8px">Permissions</div>
+              <div id="newUserPermissions" class="permissions"></div>
+            </div>
+
+            <button class="btn btn-primary">Create User</button>
           </form>
           <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Permissions</th></tr></thead><tbody id="usersBody"></tbody></table></div>
         </div>
@@ -626,7 +642,62 @@ async function loadAudit(){
 
 function renderLicense(){$('licCompany').textContent=ctx.company_name||'-';$('licPlan').textContent=ctx.plan_name||'-';$('licStatus').innerHTML=`<span class="badge ${ctx.license_valid?'active-license':'expired-license'}">${esc(ctx.license_status||'-')}</span>`;$('licExpiry').textContent=ctx.expiry_date||'Lifetime';$('licMaxUsers').textContent=ctx.max_users??'-'}
 async function loadUsers(){if(!allowed('users_manage'))return;const{data,error}=await db.rpc('list_company_users');if(error)return toast(error.message);users=data||[];$('usersBody').innerHTML=users.length?users.map(u=>`<tr><td>${esc(u.full_name)}</td><td>${esc(u.email)}</td><td>${esc(u.role)}</td><td>${u.is_active?'Active':'Disabled'}</td><td><button class="btn btn-light" onclick="openPermissions('${u.id}')">Permissions</button></td></tr>`).join(''):'<tr><td colspan="5" class="empty">لا يوجد مستخدمون</td></tr>'}
-$('newUserForm').onsubmit=async e=>{e.preventDefault();if(!allowed('users_manage'))return;const{data,error}=await db.functions.invoke('create-user',{body:{full_name:$('newFullName').value.trim(),email:$('newEmail').value.trim(),password:$('newPassword').value,role:$('newRole').value}});if(error||data?.error)return toast(data?.error||error.message);e.target.reset();toast('تم إنشاء المستخدم');await loadUsers()}
+
+const ROLE_PRESETS={
+  finance:[
+    'sales_view','sales_add','sales_edit',
+    'expenses_view','expenses_add','expenses_edit',
+    'pnl_view','excel_import','excel_export'
+  ],
+  cfo:[
+    'dashboard_view',
+    'sales_view','sales_add','sales_edit','sales_delete',
+    'expenses_view','expenses_add','expenses_edit','expenses_delete',
+    'pnl_view','excel_import','excel_export',
+    'users_manage','audit_view','license_view'
+  ]
+};
+
+function renderNewUserPermissions(){
+  const selectedRole=$('newRole').value;
+  const preset=ROLE_PRESETS[selectedRole]||[];
+  $('newUserPermissions').innerHTML=ALL_PERMS.map(p=>`
+    <label class="perm">
+      <input type="checkbox" value="${p}" ${preset.includes(p)?'checked':''}>
+      ${LABELS[p]}
+    </label>
+  `).join('');
+}
+
+$('newRole').onchange=renderNewUserPermissions;
+
+$('newUserForm').onsubmit=async e=>{
+  e.preventDefault();
+  if(!allowed('users_manage'))return toast('لا توجد صلاحية لإدارة المستخدمين');
+
+  const permissions=[...$('newUserPermissions').querySelectorAll('input:checked')].map(x=>x.value);
+
+  const {data,error}=await db.functions.invoke('create-user',{
+    body:{
+      full_name:$('newFullName').value.trim(),
+      email:$('newEmail').value.trim(),
+      password:$('newPassword').value,
+      role:$('newRole').value,
+      permissions
+    }
+  });
+
+  if(error||data?.error){
+    toast(data?.error||error.message);
+    return;
+  }
+
+  e.target.reset();
+  $('newRole').value='finance';
+  renderNewUserPermissions();
+  toast('تم إنشاء المستخدم بالصلاحيات المحددة');
+  await loadUsers();
+}
 function openPermissions(id){const u=users.find(x=>x.id===id);$('permUserId').value=id;$('permList').innerHTML=ALL_PERMS.map(p=>`<label class="perm"><input type="checkbox" value="${p}" ${u.permissions?.includes(p)?'checked':''}>${LABELS[p]}</label>`).join('');$('permissionsModal').classList.add('show')}
 function closePermissions(){$('permissionsModal').classList.remove('show')}
 async function savePermissions(){const id=$('permUserId').value,permissions=[...$('permList').querySelectorAll('input:checked')].map(x=>x.value);const{error}=await db.rpc('set_user_permissions',{target_user:id,new_permissions:permissions});if(error)return toast(error.message);closePermissions();toast('تم تحديث الصلاحيات');await loadUsers()}
@@ -757,6 +828,7 @@ function recalcSaleNet(){$('saleNet').value=(num($('salePrice').value)+num($('sa
 function recalcExpenseNet(){$('expenseNet').value=(num($('expenseCost').value)+num($('expenseVat').value)).toFixed(2)}
 $('salePrice').addEventListener('input',recalcSaleNet);$('saleVat').addEventListener('input',recalcSaleNet);
 $('expenseCost').addEventListener('input',recalcExpenseNet);$('expenseVat').addEventListener('input',recalcExpenseNet);
+renderNewUserPermissions();
 init();
 </script>
 </body>

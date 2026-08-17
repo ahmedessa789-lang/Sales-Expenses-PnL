@@ -241,7 +241,12 @@
       </section>
 
       <section id="expenses" class="section">
-        <div class="cards"><div class="card"><div class="label">Net Cost</div><div id="expensesTotal" class="value">0.00</div></div><div class="card"><div class="label">Transactions</div><div id="expensesCount" class="value">0</div></div></div>
+        <div class="cards">
+          <div class="card"><div class="label">Total Cost</div><div id="expensesCostTotal" class="value">0.00</div></div>
+          <div class="card"><div class="label">Total VAT</div><div id="expensesVatTotal" class="value">0.00</div></div>
+          <div class="card"><div class="label">Net Cost</div><div id="expensesTotal" class="value">0.00</div></div>
+          <div class="card"><div class="label">Transactions</div><div id="expensesCount" class="value">0</div></div>
+        </div>
         <form id="expenseForm" class="toolbar" data-action-perm="expenses_add">
           <div class="field"><label>Date</label><input type="date" id="expenseDate" required></div>
           <div class="field"><label>Expense Name</label><input id="expenseName" required></div>
@@ -446,8 +451,9 @@ async function deleteSale(id){if(!allowed('sales_delete')||!confirm('حذف ال
 function editExpense(id){
   if(!allowed('expenses_edit'))return;
   const x=expenses.find(r=>r.id===id);
-  editExpenseId=id;
+  if(!x)return;
 
+  editExpenseId=id;
   const cost=expenseBaseCost(x);
   const vat=expenseVatPercent(x);
 

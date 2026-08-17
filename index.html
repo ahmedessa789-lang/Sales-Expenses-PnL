@@ -641,7 +641,29 @@ async function loadAudit(){
 }
 
 function renderLicense(){$('licCompany').textContent=ctx.company_name||'-';$('licPlan').textContent=ctx.plan_name||'-';$('licStatus').innerHTML=`<span class="badge ${ctx.license_valid?'active-license':'expired-license'}">${esc(ctx.license_status||'-')}</span>`;$('licExpiry').textContent=ctx.expiry_date||'Lifetime';$('licMaxUsers').textContent=ctx.max_users??'-'}
-async function loadUsers(){if(!allowed('users_manage'))return;const{data,error}=await db.rpc('list_company_users');if(error)return toast(error.message);users=data||[];$('usersBody').innerHTML=users.length?users.map(u=>`<tr><td>${esc(u.full_name)}</td><td>${esc(u.email)}</td><td>${esc(u.role)}</td><td>${u.is_active?'Active':'Disabled'}</td><td><button class="btn btn-light" onclick="openPermissions('${u.id}')">Permissions</button></td></tr>`).join(''):'<tr><td colspan="5" class="empty">لا يوجد مستخدمون</td></tr>'}
+async function loadUsers(){
+  if(!allowed('users_manage'))return;
+  const {data,error}=await db.rpc('list_company_users');
+  if(error)return toast(error.message);
+
+  users=data||[];
+
+  $('usersBody').innerHTML=users.length?users.map(u=>{
+    const canDelete = u.id!==ctx.user_id && u.role!=='owner';
+    return `<tr>
+      <td>${esc(u.full_name)}</td>
+      <td>${esc(u.email)}</td>
+      <td>${esc(u.role)}</td>
+      <td>${u.is_active?'Active':'Disabled'}</td>
+      <td>
+        <div class="actions">
+          <button class="btn btn-light" onclick="openPermissions('${u.id}')">Permissions</button>
+          ${canDelete?`<button class="btn btn-danger" onclick="deleteUser('${u.id}','${esc(u.full_name||u.email||'User')}')">Delete User</button>`:''}
+        </div>
+      </td>
+    </tr>`;
+  }).join(''):'<tr><td colspan="5" class="empty">لا يوجد مستخدمون</td></tr>';
+}
 
 const ROLE_PRESETS={
   finance:[

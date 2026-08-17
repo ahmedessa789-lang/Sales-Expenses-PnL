@@ -698,6 +698,28 @@ $('newUserForm').onsubmit=async e=>{
   toast('تم إنشاء المستخدم بالصلاحيات المحددة');
   await loadUsers();
 }
+
+async function deleteUser(userId,userName){
+  if(!allowed('users_manage'))return toast('لا توجد صلاحية لحذف المستخدمين');
+  if(userId===ctx.user_id)return toast('لا يمكنك حذف المستخدم الذي سجلت الدخول به');
+
+  if(!confirm(`سيتم حذف المستخدم "${userName}" نهائيًا من النظام.\nهل أنت متأكد؟`))return;
+  if(!confirm('تأكيد أخير: سيتم حذف حساب تسجيل الدخول والصلاحيات والملف الشخصي. هل تريد الاستمرار؟'))return;
+
+  const {data,error}=await db.functions.invoke('create-user',{
+    body:{action:'delete-user',user_id:userId}
+  });
+
+  if(error||data?.error){
+    toast(data?.error||error.message);
+    return;
+  }
+
+  toast('تم حذف المستخدم بنجاح');
+  await loadUsers();
+  renderLicense();
+}
+
 function openPermissions(id){const u=users.find(x=>x.id===id);$('permUserId').value=id;$('permList').innerHTML=ALL_PERMS.map(p=>`<label class="perm"><input type="checkbox" value="${p}" ${u.permissions?.includes(p)?'checked':''}>${LABELS[p]}</label>`).join('');$('permissionsModal').classList.add('show')}
 function closePermissions(){$('permissionsModal').classList.remove('show')}
 async function savePermissions(){const id=$('permUserId').value,permissions=[...$('permList').querySelectorAll('input:checked')].map(x=>x.value);const{error}=await db.rpc('set_user_permissions',{target_user:id,new_permissions:permissions});if(error)return toast(error.message);closePermissions();toast('تم تحديث الصلاحيات');await loadUsers()}

@@ -443,7 +443,22 @@ $('expenseForm').onsubmit=async e=>{
 };
 function editSale(id){if(!allowed('sales_edit'))return;const x=sales.find(r=>r.id===id);editSaleId=id;$('saleDate').value=x.sale_date;$('saleCustomer').value=x.customer_name;$('saleDoctor').value=x.doctor_name||'';$('salePrice').value=x.price;$('saleVat').value=saleVatPercent(x);$('saleNet').value=saleNetValue(x);$('saveSaleBtn').textContent='حفظ التعديل';scrollTo({top:0,behavior:'smooth'})}
 async function deleteSale(id){if(!allowed('sales_delete')||!confirm('حذف العملية؟'))return;const{error}=await db.from('sales').delete().eq('id',id);if(error)return toast(error.message);await loadSales();renderPnL()}
-function editExpense(id){if(!allowed('expenses_edit'))return;const x=expenses.find(r=>r.id===id);editExpenseId=id;$('expenseDate').value=x.expense_date;$('expenseName').value=x.expense_name;$('expenseCost').value=expenseBaseCost(x);$('expenseVat').value=expenseVatPercent(x);$('expenseNet').value=num(x.net)||expenseBaseCost(x)*(1+num(x.vat)/100);$('saveExpenseBtn').textContent='حفظ التعديل';scrollTo({top:0,behavior:'smooth'})}
+function editExpense(id){
+  if(!allowed('expenses_edit'))return;
+  const x=expenses.find(r=>r.id===id);
+  editExpenseId=id;
+
+  const cost=expenseBaseCost(x);
+  const vat=expenseVatPercent(x);
+
+  $('expenseDate').value=x.expense_date;
+  $('expenseName').value=x.expense_name;
+  $('expenseCost').value=cost;
+  $('expenseVat').value=vat;
+  $('expenseNet').value=(cost*(1+vat/100)).toFixed(2);
+  $('saveExpenseBtn').textContent='حفظ التعديل';
+  scrollTo({top:0,behavior:'smooth'});
+}
 async function deleteExpense(id){if(!allowed('expenses_delete')||!confirm('حذف المصروف؟'))return;const{error}=await db.from('expenses').delete().eq('id',id);if(error)return toast(error.message);await loadExpenses()}
 
 async function clearAllSales(){
@@ -481,7 +496,45 @@ function renderSales(){
   $('salesNet').textContent=fmt(r.reduce((s,x)=>s+saleNetValue(x),0));
   $('salesCount').textContent=r.length;
 }
-function renderExpenses(){const q=$('expensesSearch').value.toLowerCase(),f=$('expensesFrom').value,t=$('expensesTo').value,r=expenses.filter(x=>(!q||x.expense_name.toLowerCase().includes(q))&&inRange(x.expense_date,f,t));$('expensesBody').innerHTML=r.length?r.map(x=>`<tr><td>${x.expense_date}</td><td>${esc(x.expense_name)}</td><td>${fmt(x.amount)}</td><td><div class="actions">${allowed('expenses_edit')?`<button class="btn btn-light" onclick="editExpense('${x.id}')">تعديل</button>`:''}${allowed('expenses_delete')?`<button class="btn btn-danger" onclick="deleteExpense('${x.id}')">حذف</button>`:''}</div></td></tr>`).join(''):'<tr><td colspan="4" class="empty">لا توجد بيانات</td></tr>';$('expensesTotal').textContent=fmt(r.reduce((s,x)=>s+num(x.amount),0));$('expensesCount').textContent=r.length}
+function renderExpenses(){
+  const q=$('expensesSearch').value.toLowerCase();
+  const f=$('expensesFrom').value;
+  const t=$('expensesTo').value;
+
+  const r=expenses.filter(x=>
+    (!q || (x.expense_name||'').toLowerCase().includes(q))
+    && inRange(x.expense_date,f,t)
+  );
+
+  $('expensesBody').innerHTML=r.length ? r.map(x=>{
+    const cost=expenseBaseCost(x);
+    const vat=expenseVatPercent(x);
+    const net=cost*(1+vat/100);
+
+    return `<tr>
+      <td>${x.expense_date}</td>
+      <td>${esc(x.expense_name)}</td>
+      <td>${fmt(cost)}</td>
+      <td>${fmt(vat)}%</td>
+      <td>${fmt(net)}</td>
+      <td>
+        <div class="actions">
+          ${allowed('expenses_edit')?`<button class="btn btn-light" onclick="editExpense('${x.id}')">تعديل</button>`:''}
+          ${allowed('expenses_delete')?`<button class="btn btn-danger" onclick="deleteExpense('${x.id}')">حذف</button>`:''}
+        </div>
+      </td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" class="empty">لا توجد بيانات</td></tr>';
+
+  $('expensesTotal').textContent=fmt(
+    r.reduce((s,x)=>{
+      const cost=expenseBaseCost(x);
+      const vat=expenseVatPercent(x);
+      return s + cost*(1+vat/100);
+    },0)
+  );
+  $('expensesCount').textContent=r.length;
+}
 
 function renderDashboard(){
   const f=$('dashboardFrom')?.value||'',t=$('dashboardTo')?.value||'';
@@ -516,12 +569,16 @@ function renderDashboard(){
 }
 
 function renderPnL(){
-  const f=$('pnlFrom').value,t=$('pnlTo').value;
+  const f=$('pnlFrom').value;
+  const t=$('pnlTo').value;
+
   const ss=sales.filter(x=>inRange(x.sale_date,f,t));
   const ee=expenses.filter(x=>inRange(x.expense_date,f,t));
+
   const netSales=ss.reduce((s,x)=>s+num(x.price),0);
   const netCost=ee.reduce((s,x)=>s+expenseBaseCost(x),0);
   const profit=netSales-netCost;
+
   $('pnlNetSales').textContent=fmt(netSales);
   $('pnlNetCost').textContent=fmt(netCost);
   $('pnlProfit').textContent=fmt(profit);
@@ -659,8 +716,29 @@ async function confirmImport(){
   toast(`تم استيراد ${count} صف بنجاح`);
 }
 function downloadTemplate(type){if(!allowed('excel_export'))return;const r=type==='sales'?[{Date:today(),'Customer Name':'Example Customer',Doctor:'Dr. Example',Price:5000,'VAT %':14,Net:5700}]:[{Date:today(),'Expense Name':'Transportation',Cost:500,'VAT %':14,Net:570}],ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,type);XLSX.writeFile(wb,`${type}_template.xlsx`)}
-function exportData(type){if(!allowed('excel_export'))return;const r=type==='sales'?sales.map(x=>({Date:x.sale_date,'Customer Name':x.customer_name,Doctor:x.doctor_name,Price:x.price,'VAT %':saleVatPercent(x),Net:saleNetValue(x)})):expenses.map(x=>({Date:x.expense_date,'Expense Name':x.expense_name,Cost:expenseBaseCost(x),'VAT %':x.vat,Net:num(x.net)||expenseBaseCost(x)*(1+num(x.vat)/100)})),ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,type);XLSX.writeFile(wb,`${type}_data.xlsx`)}
-function exportPnL(){if(!allowed('excel_export'))return;const f=$('pnlFrom').value,t=$('pnlTo').value,ss=sales.filter(x=>inRange(x.sale_date,f,t)),ee=expenses.filter(x=>inRange(x.expense_date,f,t)),rev=ss.reduce((s,x)=>s+num(x.price),0),cost=ss.reduce((s,x)=>s+num(x.cost),0),gross=rev-cost,exp=ee.reduce((s,x)=>s+num(x.amount),0),r=[{Item:'Total Revenue',Amount:rev},{Item:'Total Cost',Amount:cost},{Item:'Gross Profit',Amount:gross},{Item:'Total Expenses',Amount:exp},{Item:'Net Profit',Amount:gross-exp}],ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'P&L');XLSX.writeFile(wb,'Profit_and_Loss.xlsx')}
+function exportData(type){if(!allowed('excel_export'))return;const r=type==='sales'?sales.map(x=>({Date:x.sale_date,'Customer Name':x.customer_name,Doctor:x.doctor_name,Price:x.price,'VAT %':saleVatPercent(x),Net:saleNetValue(x)})):expenses.map(x=>({Date:x.expense_date,'Expense Name':x.expense_name,Cost:expenseBaseCost(x),'VAT %':expenseVatPercent(x),Net:expenseNetValue(x)})),ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,type);XLSX.writeFile(wb,`${type}_data.xlsx`)}
+function exportPnL(){
+  if(!allowed('excel_export'))return;
+
+  const f=$('pnlFrom').value;
+  const t=$('pnlTo').value;
+  const ss=sales.filter(x=>inRange(x.sale_date,f,t));
+  const ee=expenses.filter(x=>inRange(x.expense_date,f,t));
+
+  const netSales=ss.reduce((s,x)=>s+num(x.price),0);
+  const netCost=ee.reduce((s,x)=>s+expenseBaseCost(x),0);
+
+  const rows=[
+    {Item:'Net Sales (Excluding VAT)',Amount:netSales},
+    {Item:'Net Cost (Excluding VAT)',Amount:netCost},
+    {Item:'Net Profit',Amount:netSales-netCost}
+  ];
+
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'P&L');
+  XLSX.writeFile(wb,'Profit_and_Loss_Excluding_VAT.xlsx');
+}
 
 ['dashboardFrom','dashboardTo'].forEach(id=>$(id).oninput=renderDashboard);
 ['auditAction','auditModule','auditFrom','auditTo'].forEach(id=>{if($(id))$(id).oninput=loadAudit});

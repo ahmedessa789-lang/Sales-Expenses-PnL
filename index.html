@@ -728,8 +728,8 @@ async function deleteUser(userId,userName){
   if(!confirm(`سيتم حذف المستخدم "${userName}" نهائيًا من النظام.\nهل أنت متأكد؟`))return;
   if(!confirm('تأكيد أخير: سيتم حذف حساب تسجيل الدخول والصلاحيات والملف الشخصي. هل تريد الاستمرار؟'))return;
 
-  const {data,error}=await db.functions.invoke('create-user',{
-    body:{action:'delete-user',user_id:userId}
+  const {data,error}=await db.functions.invoke('delete-user',{
+    body:{user_id:userId}
   });
 
   if(error||data?.error){

@@ -44,7 +44,29 @@
     @media(max-width:900px){.app{grid-template-columns:1fr}.side{height:auto;position:static}.side nav{display:flex;overflow:auto;gap:7px}.nav-btn{min-width:140px;margin:0}.cards{grid-template-columns:repeat(2,1fr)}.dashboard-grid{grid-template-columns:1fr}.dashboard-cards{grid-template-columns:repeat(2,1fr)}.permissions{grid-template-columns:1fr 1fr}main{padding:15px}}
     @media(max-width:560px){.cards,.permissions,.dashboard-cards{grid-template-columns:1fr}.dashboard-hero{align-items:flex-start;flex-direction:column}.top{align-items:flex-start;flex-direction:column}}
     @media print{.side,.toolbar,.actions,.no-print,.top .btn{display:none!important}.app{display:block}main{padding:0}.section{display:none!important}.section.active{display:block!important}.card,.panel{box-shadow:none}}
-  </style>
+  
+    .report-actions{display:flex;gap:8px;justify-content:flex-start;align-items:center;margin:0 0 14px 0;flex-wrap:wrap}
+    .report-title{display:none}
+    @media print{
+      body.print-mode *{visibility:hidden!important}
+      body.print-mode .printing-section,
+      body.print-mode .printing-section *{visibility:visible!important}
+      body.print-mode .printing-section{position:absolute!important;left:0!important;top:0!important;width:100%!important;padding:16px!important;background:#fff!important}
+      body.print-mode .sidebar,
+      body.print-mode .topbar,
+      body.print-mode .no-print,
+      body.print-mode form,
+      body.print-mode button,
+      body.print-mode input,
+      body.print-mode select,
+      body.print-mode .actions{display:none!important}
+      body.print-mode .report-title{display:block!important;margin-bottom:16px}
+      body.print-mode .section{box-shadow:none!important}
+      body.print-mode table{font-size:11px}
+    }
+
+</style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
   <section id="setupScreen" class="screen center hidden">
@@ -98,6 +120,7 @@
 
 
       <section id="dashboard" class="section active">
+        <div class="report-actions no-print"><button class="btn btn-light" onclick="printSection('dashboard','Financial Dashboard')">🖨 Print</button><button class="btn btn-success" onclick="exportSectionPDF('dashboard','Financial Dashboard')">📄 PDF</button></div>
         <div class="dashboard-hero">
           <div>
             <div class="eyebrow">Business Overview</div>
@@ -212,13 +235,14 @@
       </section>
 
       <section id="sales" class="section">
+        <div class="report-actions no-print"><button class="btn btn-light" onclick="printSection('sales','Sales Report')">🖨 Print</button><button class="btn btn-success" onclick="exportSectionPDF('sales','Sales Report')">📄 PDF</button></div>
         <div class="cards">
           <div class="card"><div class="label">Total Revenue</div><div id="salesRevenue" class="value">0.00</div></div>
           <div class="card"><div class="label">Total VAT</div><div id="salesVatTotal" class="value">0.00</div></div>
           <div class="card"><div class="label">Net Sales</div><div id="salesNet" class="value">0.00</div></div>
           <div class="card"><div class="label">Transactions</div><div id="salesCount" class="value">0</div></div>
         </div>
-        <form id="saleForm" class="toolbar" data-action-perm="sales_add">
+        <form id="saleForm" class="toolbar no-print" data-action-perm="sales_add">
           <div class="field"><label>Date</label><input type="date" id="saleDate" required></div>
           <div class="field"><label>Customer Name</label><input id="saleCustomer" required></div>
           <div class="field"><label>Doctor</label><input id="saleDoctor"></div>
@@ -241,13 +265,14 @@
       </section>
 
       <section id="expenses" class="section">
+        <div class="report-actions no-print"><button class="btn btn-light" onclick="printSection('expenses','Expenses Report')">🖨 Print</button><button class="btn btn-success" onclick="exportSectionPDF('expenses','Expenses Report')">📄 PDF</button></div>
         <div class="cards">
           <div class="card"><div class="label">Total Cost</div><div id="expensesCostTotal" class="value">0.00</div></div>
           <div class="card"><div class="label">Total VAT</div><div id="expensesVatTotal" class="value">0.00</div></div>
           <div class="card"><div class="label">Net Cost</div><div id="expensesTotal" class="value">0.00</div></div>
           <div class="card"><div class="label">Transactions</div><div id="expensesCount" class="value">0</div></div>
         </div>
-        <form id="expenseForm" class="toolbar" data-action-perm="expenses_add">
+        <form id="expenseForm" class="toolbar no-print" data-action-perm="expenses_add">
           <div class="field"><label>Date</label><input type="date" id="expenseDate" required></div>
           <div class="field"><label>Expense Name</label><input id="expenseName" required></div>
           <div class="field"><label>Cost</label><input type="number" step="0.01" id="expenseCost" required></div>
@@ -269,15 +294,17 @@
       </section>
 
       <section id="pnl" class="section">
+        <div class="report-actions no-print"><button class="btn btn-light" onclick="printSection('pnl','Profit & Loss Statement')">🖨 Print</button><button class="btn btn-success" onclick="exportSectionPDF('pnl','Profit & Loss Statement')">📄 PDF</button></div>
         <div class="toolbar"><div class="field"><label>From</label><input type="date" id="pnlFrom"></div><div class="field"><label>To</label><input type="date" id="pnlTo"></div><button class="btn btn-light" onclick="window.print()">Print</button><button class="btn btn-success" onclick="exportPnL()" data-action-perm="excel_export">Export P&L</button></div>
         <div class="panel pnl"><h2>Profit & Loss Statement</h2><div class="pnl-line"><span>Net Sales (Excluding VAT)</span><strong id="pnlNetSales">0.00</strong></div><div class="pnl-line"><span>Net Cost (Excluding VAT)</span><strong id="pnlNetCost">0.00</strong></div><div class="pnl-line total"><span>Net Profit</span><strong id="pnlProfit">0.00</strong></div></div>
       </section>
 
       <section id="users" class="section">
+        <div class="report-actions no-print"><button class="btn btn-light" onclick="printSection('users','Users & Permissions')">🖨 Print</button><button class="btn btn-success" onclick="exportSectionPDF('users','Users & Permissions')">📄 PDF</button></div>
         <div class="panel">
           <h2>Users & Permissions</h2>
           <div class="message info">إنشاء المستخدم يتم من خلال Edge Function الآمنة الموجودة داخل الحزمة.</div>
-          <form id="newUserForm" class="toolbar">
+          <form id="newUserForm" class="toolbar no-print">
             <div class="field"><label>Full Name</label><input id="newFullName" required></div>
             <div class="field"><label>Email</label><input type="email" id="newEmail" required></div>
             <div class="field"><label>Temporary Password</label><input type="password" id="newPassword" minlength="8" required></div>
@@ -286,6 +313,7 @@
               <select id="newRole">
                 <option value="finance">Finance</option>
                 <option value="cfo">CFO</option>
+                <option value="co_owner">Co-Owner</option>
               </select>
             </div>
 
@@ -302,6 +330,7 @@
 
 
       <section id="audit" class="section">
+        <div class="report-actions no-print"><button class="btn btn-light" onclick="printSection('audit','Audit Log')">🖨 Print</button><button class="btn btn-success" onclick="exportSectionPDF('audit','Audit Log')">📄 PDF</button></div>
         <div class="panel">
           <div class="panel-title">
             <div>
@@ -341,6 +370,7 @@
       </section>
 
       <section id="license" class="section">
+        <div class="report-actions no-print"><button class="btn btn-light" onclick="printSection('license','License Information')">🖨 Print</button><button class="btn btn-success" onclick="exportSectionPDF('license','License Information')">📄 PDF</button></div>
         <div class="panel"><h2>License Information</h2><div class="pnl-line"><span>Company</span><strong id="licCompany"></strong></div><div class="pnl-line"><span>Plan</span><strong id="licPlan"></strong></div><div class="pnl-line"><span>Status</span><strong id="licStatus"></strong></div><div class="pnl-line"><span>Expiry Date</span><strong id="licExpiry"></strong></div><div class="pnl-line"><span>Max Users</span><strong id="licMaxUsers"></strong></div></div>
       </section>
     </main>
@@ -677,6 +707,13 @@ const ROLE_PRESETS={
     'expenses_view','expenses_add','expenses_edit','expenses_delete',
     'pnl_view','excel_import','excel_export',
     'users_manage','audit_view','license_view'
+  ],
+  co_owner:[
+    'dashboard_view',
+    'sales_view','sales_add','sales_edit','sales_delete',
+    'expenses_view','expenses_add','expenses_edit','expenses_delete',
+    'pnl_view','excel_import','excel_export',
+    'users_manage','audit_view','license_view'
   ]
 };
 
@@ -728,8 +765,8 @@ async function deleteUser(userId,userName){
   if(!confirm(`سيتم حذف المستخدم "${userName}" نهائيًا من النظام.\nهل أنت متأكد؟`))return;
   if(!confirm('تأكيد أخير: سيتم حذف حساب تسجيل الدخول والصلاحيات والملف الشخصي. هل تريد الاستمرار؟'))return;
 
-  const {data,error}=await db.functions.invoke('delete-user',{
-    body:{user_id:userId}
+  const {data,error}=await db.functions.invoke('create-user',{
+    body:{action:'delete-user',user_id:userId}
   });
 
   if(error||data?.error){
@@ -873,6 +910,117 @@ function recalcExpenseNet(){$('expenseNet').value=(num($('expenseCost').value)+n
 $('salePrice').addEventListener('input',recalcSaleNet);$('saleVat').addEventListener('input',recalcSaleNet);
 $('expenseCost').addEventListener('input',recalcExpenseNet);$('expenseVat').addEventListener('input',recalcExpenseNet);
 renderNewUserPermissions();
+
+function cleanReportClone(sectionId,title){
+  const src=document.getElementById(sectionId);
+  if(!src) throw new Error('Section not found');
+
+  const clone=src.cloneNode(true);
+  clone.classList.add('pdf-report-clone');
+
+  clone.querySelectorAll(
+    'form,.no-print,button,input,select,textarea,.actions,.modal-bg'
+  ).forEach(el=>el.remove());
+
+  // Remove Actions table columns.
+  clone.querySelectorAll('table').forEach(table=>{
+    const headers=[...table.querySelectorAll('thead th')];
+    const actionIndexes=[];
+    headers.forEach((th,i)=>{
+      if((th.textContent||'').trim().toLowerCase()==='actions') actionIndexes.push(i);
+    });
+    actionIndexes.reverse().forEach(idx=>{
+      table.querySelectorAll('tr').forEach(tr=>{
+        if(tr.children[idx]) tr.children[idx].remove();
+      });
+    });
+  });
+
+  // Remove empty toolbars after controls are stripped.
+  clone.querySelectorAll('.toolbar').forEach(el=>{
+    if(!el.textContent.trim() && !el.querySelector('table,.cards,.panel')) el.remove();
+  });
+
+  const header=document.createElement('div');
+  header.style.cssText='margin-bottom:18px;padding-bottom:10px;border-bottom:1px solid #ddd;text-align:left';
+  header.innerHTML=`
+    <h1 style="margin:0 0 6px;font-size:24px">${esc(title)}</h1>
+    <div style="font-size:12px;color:#667085">
+      ${esc(ctx?.company_name||'')} - Generated ${new Date().toLocaleString()}
+    </div>`;
+  clone.prepend(header);
+
+  clone.style.display='block';
+  clone.style.background='#fff';
+  clone.style.color='#172033';
+  clone.style.padding='18px';
+  clone.style.width='100%';
+  clone.querySelectorAll('.card,.panel,.table-wrap').forEach(el=>{
+    el.style.breakInside='avoid';
+  });
+
+  return clone;
+}
+
+function printSection(sectionId,title){
+  const section=document.getElementById(sectionId);
+  if(!section)return toast('Section not found');
+
+  section.classList.add('printing-section');
+
+  const rt=document.createElement('div');
+  rt.className='report-title';
+  rt.innerHTML=`<h2>${esc(title)}</h2><div>${esc(ctx?.company_name||'')}</div>`;
+  section.prepend(rt);
+
+  document.body.classList.add('print-mode');
+
+  const cleanup=()=>{
+    document.body.classList.remove('print-mode');
+    section.classList.remove('printing-section');
+    rt.remove();
+    window.removeEventListener('afterprint',cleanup);
+  };
+  window.addEventListener('afterprint',cleanup);
+  window.print();
+  setTimeout(cleanup,1500);
+}
+
+async function exportSectionPDF(sectionId,title){
+  if(typeof html2pdf==='undefined'){
+    toast('PDF library failed to load. Check internet connection and refresh.');
+    return;
+  }
+
+  try{
+    const clone=cleanReportClone(sectionId,title);
+    const holder=document.createElement('div');
+    holder.style.cssText='position:fixed;left:-100000px;top:0;width:1100px;background:#fff;z-index:-1';
+    holder.appendChild(clone);
+    document.body.appendChild(holder);
+
+    const filename=(title||sectionId)
+      .replace(/[^a-zA-Z0-9_-]+/g,'_')
+      .replace(/^_+|_+$/g,'')+'.pdf';
+
+    const opt={
+      margin:[8,8,8,8],
+      filename,
+      image:{type:'jpeg',quality:0.98},
+      html2canvas:{scale:1.5,useCORS:true,backgroundColor:'#ffffff'},
+      jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},
+      pagebreak:{mode:['avoid-all','css','legacy']}
+    };
+
+    await html2pdf().set(opt).from(clone).save();
+    holder.remove();
+    toast('تم إنشاء ملف PDF');
+  }catch(err){
+    console.error(err);
+    toast('فشل إنشاء PDF: '+(err?.message||'Unknown error'));
+  }
+}
+
 init();
 </script>
 </body>

@@ -444,8 +444,8 @@ function editExpense(id){
   if(!allowed('expenses_edit'))return;
   const x=expenses.find(r=>r.id===id);
   if(!x)return;
-  editExpenseId=id;
 
+  editExpenseId=id;
   const cost=expenseBaseCost(x);
   const vat=expenseVatAmount(x);
 
@@ -528,22 +528,20 @@ function renderExpenses(){
       <td>${fmt(cost)}</td>
       <td>${fmt(vat)}</td>
       <td>${fmt(net)}</td>
-      <td>
-        <div class="actions">
-          ${allowed('expenses_edit')?`<button class="btn btn-light" onclick="editExpense('${x.id}')">تعديل</button>`:''}
-          ${allowed('expenses_delete')?`<button class="btn btn-danger" onclick="deleteExpense('${x.id}')">حذف</button>`:''}
-        </div>
-      </td>
+      <td><div class="actions">
+        ${allowed('expenses_edit')?`<button class="btn btn-light" onclick="editExpense('${x.id}')">تعديل</button>`:''}
+        ${allowed('expenses_delete')?`<button class="btn btn-danger" onclick="deleteExpense('${x.id}')">حذف</button>`:''}
+      </div></td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" class="empty">لا توجد بيانات</td></tr>';
 
-  $('expensesTotal').textContent=fmt(
-    r.reduce((s,x)=>{
-      const cost=expenseBaseCost(x);
-      const vat=expenseVatAmount(x);
-      return s + cost+vat;
-    },0)
-  );
+  const totalCost=r.reduce((s,x)=>s+expenseBaseCost(x),0);
+  const totalVat=r.reduce((s,x)=>s+expenseVatAmount(x),0);
+  const totalNet=totalCost+totalVat;
+
+  $('expensesCostTotal').textContent=fmt(totalCost);
+  $('expensesVatTotal').textContent=fmt(totalVat);
+  $('expensesTotal').textContent=fmt(totalNet);
   $('expensesCount').textContent=r.length;
 }
 

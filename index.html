@@ -89,6 +89,13 @@
   }
 }
 
+
+.pnl-report-range{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:12px 0 18px}
+.pnl-report-date-box{border:1px solid #d9e1ec;border-radius:12px;padding:12px 16px;background:#fff;display:flex;justify-content:space-between;align-items:center;min-height:48px}
+.pnl-report-date-box span{color:#667085;font-weight:600}
+.pnl-report-date-box strong{color:#172033;font-size:15px}
+@media print{body.print-mode .pnl-report-range,body.print-mode .pnl-report-range *{display:flex!important;visibility:visible!important}.pnl-report-range{display:grid!important}.pnl-report-date-box{display:flex!important}}
+
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
@@ -993,24 +1000,17 @@ function cleanReportClone(sectionId,title){
 
   if(sectionId==='pnl'){
     const range=getPnlFromToValues();
-    const fromInput=clone.querySelector('#pnlFrom');
-    const toInput=clone.querySelector('#pnlTo');
-
-    if(fromInput){
-      const box=document.createElement('div');
-      box.className='report-date-value';
-      box.textContent=range.from;
-      box.style.cssText='min-height:42px;border:1px solid #d9e1ec;border-radius:10px;padding:11px 14px;background:#fff;font-weight:700;text-align:center';
-      fromInput.replaceWith(box);
+    const toolbar=clone.querySelector('#pnlFrom')?.closest('.toolbar');
+    if(toolbar){
+      const rangeBar=document.createElement('div');
+      rangeBar.className='pnl-report-range';
+      rangeBar.innerHTML=`
+        <div class="pnl-report-date-box"><span>From</span><strong>${esc(range.from)}</strong></div>
+        <div class="pnl-report-date-box"><span>To</span><strong>${esc(range.to)}</strong></div>`;
+      toolbar.replaceWith(rangeBar);
     }
-
-    if(toInput){
-      const box=document.createElement('div');
-      box.className='report-date-value';
-      box.textContent=range.to;
-      box.style.cssText='min-height:42px;border:1px solid #d9e1ec;border-radius:10px;padding:11px 14px;background:#fff;font-weight:700;text-align:center';
-      toInput.replaceWith(box);
-    }
+    // Remove any legacy Period line from older report markup.
+    clone.querySelectorAll('#pnlReportPeriod,.pnl-report-period').forEach(el=>el.remove());
   }
 
   clone.querySelectorAll(
@@ -1038,7 +1038,7 @@ function cleanReportClone(sectionId,title){
 
   const header=document.createElement('div');
   header.style.cssText='margin-bottom:18px;padding-bottom:10px;border-bottom:1px solid #ddd;text-align:left';
-  const periodLine = '';
+  const periodLine='';
 
   header.innerHTML=`
     <h1 style="margin:0 0 6px;font-size:24px">${esc(title)}</h1>
@@ -1068,18 +1068,17 @@ function printSection(sectionId,title){
   let printDateNodes=[];
   if(sectionId==='pnl'){
     const range=getPnlFromToValues();
-    [['pnlFrom',range.from],['pnlTo',range.to]].forEach(([id,val])=>{
-      const input=section.querySelector('#'+id);
-      if(input){
-        const box=document.createElement('div');
-        box.className='print-date-replacement';
-        box.textContent=val;
-        box.style.cssText='min-height:42px;border:1px solid #d9e1ec;border-radius:10px;padding:11px 14px;background:#fff;font-weight:700;text-align:center';
-        input.style.display='none';
-        input.parentNode.insertBefore(box,input.nextSibling);
-        printDateNodes.push([input,box]);
-      }
-    });
+    const toolbar=section.querySelector('#pnlFrom')?.closest('.toolbar');
+    if(toolbar){
+      const rangeBar=document.createElement('div');
+      rangeBar.className='pnl-report-range print-date-replacement';
+      rangeBar.innerHTML=`
+        <div class="pnl-report-date-box"><span>From</span><strong>${esc(range.from)}</strong></div>
+        <div class="pnl-report-date-box"><span>To</span><strong>${esc(range.to)}</strong></div>`;
+      toolbar.style.display='none';
+      toolbar.parentNode.insertBefore(rangeBar,toolbar.nextSibling);
+      printDateNodes.push([toolbar,rangeBar]);
+    }
   }
 
   section.classList.add('printing-section');

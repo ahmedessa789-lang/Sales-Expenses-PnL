@@ -65,6 +65,17 @@
       body.print-mode table{font-size:11px}
     }
 
+
+.yearly-pnl-wrap{display:flex;flex-direction:column;gap:18px;margin-top:18px}
+.year-pnl-card{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+.year-pnl-head{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;background:#f8fafc;border-bottom:1px solid var(--line)}
+.year-pnl-head h3{margin:0;font-size:18px}.year-pnl-head span{font-size:12px;color:var(--muted)}
+.year-pnl-table{width:100%;border-collapse:collapse}
+.year-pnl-table th,.year-pnl-table td{padding:14px 16px;border-bottom:1px solid var(--line);text-align:left}
+.year-pnl-table th{background:#fbfcfe;font-size:12px;color:var(--muted)}
+.year-pnl-table tr:last-child td{border-bottom:0}
+.year-pnl-profit{font-weight:800}
+
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
@@ -297,7 +308,9 @@
         <div class="report-actions no-print"><button class="btn btn-light" onclick="printSection('pnl','Profit & Loss Statement')">🖨 Print</button><button class="btn btn-success" onclick="exportSectionPDF('pnl','Profit & Loss Statement')">📄 PDF</button></div>
         <div class="toolbar"><div class="field"><label>From</label><input type="date" id="pnlFrom"></div><div class="field"><label>To</label><input type="date" id="pnlTo"></div><button class="btn btn-light" onclick="window.print()">Print</button><button class="btn btn-success" onclick="exportPnL()" data-action-perm="excel_export">Export P&L</button></div>
         <div class="panel pnl"><h2>Profit & Loss Statement</h2><div class="pnl-line"><span>Net Sales (Excluding VAT)</span><strong id="pnlNetSales">0.00</strong></div><div class="pnl-line"><span>Net Cost (Excluding VAT)</span><strong id="pnlNetCost">0.00</strong></div><div class="pnl-line total"><span>Net Profit</span><strong id="pnlProfit">0.00</strong></div></div>
-      </section>
+      
+<div id="pnlYearlyTables" class="yearly-pnl-wrap"></div>
+</section>
 
       <section id="users" class="section">
         <div class="report-actions no-print"><button class="btn btn-light" onclick="printSection('users','Users & Permissions')">🖨 Print</button><button class="btn btn-success" onclick="exportSectionPDF('users','Users & Permissions')">📄 PDF</button></div>
@@ -602,9 +615,7 @@ function renderDashboard(){
 }
 
 function renderPnL(){
-  const f=$('pnlFrom').value;
-  const t=$('pnlTo').value;
-
+  const f=$('pnlFrom').value,t=$('pnlTo').value;
   const ss=sales.filter(x=>inRange(x.sale_date,f,t));
   const ee=expenses.filter(x=>inRange(x.expense_date,f,t));
 
@@ -616,6 +627,28 @@ function renderPnL(){
   $('pnlNetCost').textContent=fmt(netCost);
   $('pnlProfit').textContent=fmt(profit);
   $('pnlProfit').className=profit>=0?'positive':'negative';
+
+  const years=new Set();
+  ss.forEach(x=>x.sale_date&&years.add(String(x.sale_date).slice(0,4)));
+  ee.forEach(x=>x.expense_date&&years.add(String(x.expense_date).slice(0,4)));
+
+  const sorted=[...years].filter(Boolean).sort((a,b)=>Number(a)-Number(b));
+
+  $('pnlYearlyTables').innerHTML=sorted.length?sorted.map(year=>{
+    const ys=ss.filter(x=>String(x.sale_date).slice(0,4)===year);
+    const ye=ee.filter(x=>String(x.expense_date).slice(0,4)===year);
+    const ySales=ys.reduce((s,x)=>s+num(x.price),0);
+    const yCost=ye.reduce((s,x)=>s+expenseBaseCost(x),0);
+    const yProfit=ySales-yCost;
+
+    return `<div class="year-pnl-card">
+      <div class="year-pnl-head"><h3>P&L ${year}</h3></div>
+      <table class="year-pnl-table">
+        <thead><tr><th>Year</th><th>Net Sales (Excluding VAT)</th><th>Net Cost (Excluding VAT)</th><th>Net Profit</th></tr></thead>
+        <tbody><tr><td>${year}</td><td>${fmt(ySales)}</td><td>${fmt(yCost)}</td><td class="year-pnl-profit ${yProfit>=0?'positive':'negative'}">${fmt(yProfit)}</td></tr></tbody>
+      </table>
+    </div>`;
+  }).join(''):'<div class="panel empty">لا توجد بيانات في الفترة المختارة</div>';
 }
 ['salesSearch','salesFrom','salesTo'].forEach(id=>$(id).oninput=renderSales);['expensesSearch','expensesFrom','expensesTo'].forEach(id=>$(id).oninput=renderExpenses);['pnlFrom','pnlTo'].forEach(id=>$(id).oninput=renderPnL);
 
@@ -778,7 +811,9 @@ async function readExcel(file,type){
         const customer=String(pick(r,['Customer Name','Customer','اسم العميل'])).trim();
         const doctor=String(pick(r,['Doctor','اسم الدكتور'])).trim();
         const price=num(pick(r,['Price','سعر البيع']));
-        const vat=num(pick(r,['VAT','VAT %','Vat','vat','الضريبة']));
+        const rawVat=num(pick(r,['VAT','VAT %','Vat','vat','الضريبة']));
+        const importedNet=num(pick(r,['Net','صافي']));
+        const vat=importedNet ? Math.max(0, importedNet-price) : rawVat;
         return {
           _row:i+2,
           sale_date:date,
@@ -793,7 +828,9 @@ async function readExcel(file,type){
         const date=parseDate(pick(r,['Date','التاريخ']));
         const name=String(pick(r,['Expense Name','EXP Name','اسم المصروف'])).trim();
         const cost=num(pick(r,['Cost','التكلفة']));
-        const vat=num(pick(r,['VAT','VAT %','Vat','vat','الضريبة']));
+        const rawVat=num(pick(r,['VAT','VAT %','Vat','vat','الضريبة']));
+        const importedNet=num(pick(r,['Net','صافي']));
+        const vat=importedNet ? Math.max(0, importedNet-cost) : rawVat;
         return {
           _row:i+2,
           expense_date:date,
@@ -812,7 +849,7 @@ async function readExcel(file,type){
     }
 
     pendingImport={type,rows};
-    $('importNotice').textContent=`تم العثور على ${rows.length} صف صالح. VAT يتم قراءته كمبلغ مالي (ويقبل عنوان VAT أو VAT %). راجع المعاينة ثم اضغط Import.`;
+    $('importNotice').textContent=`تم العثور على ${rows.length} صف صالح. لو Net موجود في الشيت، البرنامج يحسب VAT تلقائيًا = Net - Price/Cost لضمان تطابق الإجماليات. راجع المعاينة ثم اضغط Import.`;
 
     if(type==='sales'){
       $('previewHead').innerHTML='<tr><th>Date</th><th>Customer</th><th>Doctor</th><th>Price</th><th>VAT</th><th>Net</th></tr>';
@@ -854,25 +891,37 @@ function downloadTemplate(type){if(!allowed('excel_export'))return;const r=type=
 function exportData(type){if(!allowed('excel_export'))return;const r=type==='sales'?sales.map(x=>({Date:x.sale_date,'Customer Name':x.customer_name,Doctor:x.doctor_name,Price:x.price,'VAT':saleVatAmount(x),Net:saleNetValue(x)})):expenses.map(x=>({Date:x.expense_date,'Expense Name':x.expense_name,Cost:expenseBaseCost(x),VAT:expenseVatAmount(x),Net:expenseNetValue(x)})),ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,type);XLSX.writeFile(wb,`${type}_data.xlsx`)}
 function exportPnL(){
   if(!allowed('excel_export'))return;
-
-  const f=$('pnlFrom').value;
-  const t=$('pnlTo').value;
+  const f=$('pnlFrom').value,t=$('pnlTo').value;
   const ss=sales.filter(x=>inRange(x.sale_date,f,t));
   const ee=expenses.filter(x=>inRange(x.expense_date,f,t));
+  const wb=XLSX.utils.book_new();
 
   const netSales=ss.reduce((s,x)=>s+num(x.price),0);
   const netCost=ee.reduce((s,x)=>s+expenseBaseCost(x),0);
-
-  const rows=[
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([
     {Item:'Net Sales (Excluding VAT)',Amount:netSales},
     {Item:'Net Cost (Excluding VAT)',Amount:netCost},
     {Item:'Net Profit',Amount:netSales-netCost}
-  ];
+  ]),'Summary');
 
-  const ws=XLSX.utils.json_to_sheet(rows);
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'P&L');
-  XLSX.writeFile(wb,'Profit_and_Loss_Excluding_VAT.xlsx');
+  const years=new Set();
+  ss.forEach(x=>x.sale_date&&years.add(String(x.sale_date).slice(0,4)));
+  ee.forEach(x=>x.expense_date&&years.add(String(x.expense_date).slice(0,4)));
+
+  [...years].filter(Boolean).sort().forEach(year=>{
+    const ys=ss.filter(x=>String(x.sale_date).slice(0,4)===year);
+    const ye=ee.filter(x=>String(x.expense_date).slice(0,4)===year);
+    const ySales=ys.reduce((s,x)=>s+num(x.price),0);
+    const yCost=ye.reduce((s,x)=>s+expenseBaseCost(x),0);
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([{
+      Year:year,
+      'Net Sales (Excluding VAT)':ySales,
+      'Net Cost (Excluding VAT)':yCost,
+      'Net Profit':ySales-yCost
+    }]),String(year));
+  });
+
+  XLSX.writeFile(wb,'Profit_and_Loss_By_Year.xlsx');
 }
 
 ['dashboardFrom','dashboardTo'].forEach(id=>$(id).oninput=renderDashboard);

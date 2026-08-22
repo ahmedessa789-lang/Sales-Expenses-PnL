@@ -81,6 +81,14 @@
 .pnl-report-period{margin:6px 0 16px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:#f8fafc;font-weight:700;font-size:14px}
 @media print{.report-only{display:block!important}}
 
+
+@media print{
+  body.print-mode .print-date-replacement{
+    display:block!important;
+    visibility:visible!important;
+  }
+}
+
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
@@ -966,12 +974,44 @@ $('salePrice').addEventListener('input',recalcSaleNet);$('saleVat').addEventList
 $('expenseCost').addEventListener('input',recalcExpenseNet);$('expenseVat').addEventListener('input',recalcExpenseNet);
 renderNewUserPermissions();
 
+
+function getPnlFromToValues(){
+  const f=pnlSelectedFrom || ($('pnlFrom')?.value||'');
+  const t=pnlSelectedTo || ($('pnlTo')?.value||'');
+  return {
+    from: f ? formatReportDate(f) : 'All',
+    to: t ? formatReportDate(t) : 'All'
+  };
+}
+
 function cleanReportClone(sectionId,title){
   const src=document.getElementById(sectionId);
   if(!src) throw new Error('Section not found');
 
   const clone=src.cloneNode(true);
   clone.classList.add('pdf-report-clone');
+
+  if(sectionId==='pnl'){
+    const range=getPnlFromToValues();
+    const fromInput=clone.querySelector('#pnlFrom');
+    const toInput=clone.querySelector('#pnlTo');
+
+    if(fromInput){
+      const box=document.createElement('div');
+      box.className='report-date-value';
+      box.textContent=range.from;
+      box.style.cssText='min-height:42px;border:1px solid #d9e1ec;border-radius:10px;padding:11px 14px;background:#fff;font-weight:700;text-align:center';
+      fromInput.replaceWith(box);
+    }
+
+    if(toInput){
+      const box=document.createElement('div');
+      box.className='report-date-value';
+      box.textContent=range.to;
+      box.style.cssText='min-height:42px;border:1px solid #d9e1ec;border-radius:10px;padding:11px 14px;background:#fff;font-weight:700;text-align:center';
+      toInput.replaceWith(box);
+    }
+  }
 
   clone.querySelectorAll(
     'form,.no-print,button,input,select,textarea,.actions,.modal-bg'
@@ -998,9 +1038,7 @@ function cleanReportClone(sectionId,title){
 
   const header=document.createElement('div');
   header.style.cssText='margin-bottom:18px;padding-bottom:10px;border-bottom:1px solid #ddd;text-align:left';
-  const periodLine = sectionId==='pnl'
-    ? `<div style="font-size:14px;font-weight:700;color:#344054;margin-top:8px">${esc(getPnlPeriodText())}</div>`
-    : '';
+  const periodLine = '';
 
   header.innerHTML=`
     <h1 style="margin:0 0 6px;font-size:24px">${esc(title)}</h1>
@@ -1027,13 +1065,30 @@ function printSection(sectionId,title){
   const section=document.getElementById(sectionId);
   if(!section)return toast('Section not found');
 
+  let printDateNodes=[];
+  if(sectionId==='pnl'){
+    const range=getPnlFromToValues();
+    [['pnlFrom',range.from],['pnlTo',range.to]].forEach(([id,val])=>{
+      const input=section.querySelector('#'+id);
+      if(input){
+        const box=document.createElement('div');
+        box.className='print-date-replacement';
+        box.textContent=val;
+        box.style.cssText='min-height:42px;border:1px solid #d9e1ec;border-radius:10px;padding:11px 14px;background:#fff;font-weight:700;text-align:center';
+        input.style.display='none';
+        input.parentNode.insertBefore(box,input.nextSibling);
+        printDateNodes.push([input,box]);
+      }
+    });
+  }
+
   section.classList.add('printing-section');
 
   const rt=document.createElement('div');
   rt.className='report-title';
   rt.innerHTML=`<h2>${esc(title)}</h2>
     <div>${esc(ctx?.company_name||'')}</div>
-    ${sectionId==='pnl'?`<div style="margin-top:8px;font-weight:700">${esc(getPnlPeriodText())}</div>`:''}`;
+    `;
   section.prepend(rt);
 
   document.body.classList.add('print-mode');
@@ -1042,6 +1097,10 @@ function printSection(sectionId,title){
     document.body.classList.remove('print-mode');
     section.classList.remove('printing-section');
     rt.remove();
+    printDateNodes.forEach(([input,box])=>{
+      if(input) input.style.display='';
+      if(box) box.remove();
+    });
     window.removeEventListener('afterprint',cleanup);
   };
   window.addEventListener('afterprint',cleanup);

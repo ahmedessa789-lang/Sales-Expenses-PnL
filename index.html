@@ -310,9 +310,7 @@
       </section>
 
       <section id="pnl" class="section">
-        <div id="pnlReportPeriod" class="pnl-report-period report-only"></div>
-
-        <div class="report-actions no-print"><button class="btn btn-light" onclick="printSection('pnl','Profit & Loss Statement')">🖨 Print</button><button class="btn btn-success" onclick="exportSectionPDF('pnl','Profit & Loss Statement')">📄 PDF</button></div>
+<div class="report-actions no-print"><button class="btn btn-light" onclick="printSection('pnl','Profit & Loss Statement')">🖨 Print</button><button class="btn btn-success" onclick="exportSectionPDF('pnl','Profit & Loss Statement')">📄 PDF</button></div>
         <div class="toolbar"><div class="field"><label>From</label><input type="date" id="pnlFrom"></div><div class="field"><label>To</label><input type="date" id="pnlTo"></div><button class="btn btn-light" onclick="window.print()">Print</button><button class="btn btn-success" onclick="exportPnL()" data-action-perm="excel_export">Export P&L</button></div>
         <div class="panel pnl"><h2>Profit & Loss Statement</h2><div class="pnl-line"><span>Net Sales (Excluding VAT)</span><strong id="pnlNetSales">0.00</strong></div><div class="pnl-line"><span>Net Cost (Excluding VAT)</span><strong id="pnlNetCost">0.00</strong></div><div class="pnl-line total"><span>Net Profit</span><strong id="pnlProfit">0.00</strong></div></div>
       
@@ -622,6 +620,10 @@ function renderDashboard(){
 }
 
 
+
+let pnlSelectedFrom='';
+let pnlSelectedTo='';
+
 function formatReportDate(v){
   if(!v) return '';
   const p=String(v).split('-');
@@ -630,9 +632,17 @@ function formatReportDate(v){
 
 
 function getPnlPeriodText(){
-  const f=$('pnlFrom')?.value||'';
-  const t=$('pnlTo')?.value||'';
+  const fromInput=$('pnlFrom');
+  const toInput=$('pnlTo');
+
+  const f=pnlSelectedFrom || (fromInput ? fromInput.value : '') || '';
+  const t=pnlSelectedTo || (toInput ? toInput.value : '') || '';
+
   if(f&&t) return `Period: ${formatReportDate(f)} → ${formatReportDate(t)}`;
+  if(f) return `Period: From ${formatReportDate(f)}`;
+  if(t) return `Period: Until ${formatReportDate(t)}`;
+  return 'Period: All Periods';
+} → ${formatReportDate(t)}`;
   if(f) return `Period: From ${formatReportDate(f)}`;
   if(t) return `Period: Until ${formatReportDate(t)}`;
   return 'Period: All Periods';
@@ -640,8 +650,8 @@ function getPnlPeriodText(){
 
 function renderPnL(){
   const f=$('pnlFrom').value,t=$('pnlTo').value;
-  const periodText=getPnlPeriodText();
-  if($('pnlReportPeriod')) $('pnlReportPeriod').textContent=periodText;
+  pnlSelectedFrom=f||'';
+  pnlSelectedTo=t||'';
   const ss=sales.filter(x=>inRange(x.sale_date,f,t));
   const ee=expenses.filter(x=>inRange(x.expense_date,f,t));
 
@@ -993,7 +1003,7 @@ function cleanReportClone(sectionId,title){
   const header=document.createElement('div');
   header.style.cssText='margin-bottom:18px;padding-bottom:10px;border-bottom:1px solid #ddd;text-align:left';
   const periodLine = sectionId==='pnl'
-    ? `<div style="font-size:13px;font-weight:700;color:#344054;margin-top:6px">${esc(getPnlPeriodText())}</div>`
+    ? `<div style="font-size:14px;font-weight:700;color:#344054;margin-top:8px">${esc(getPnlPeriodText())}</div>`
     : '';
 
   header.innerHTML=`
@@ -1027,7 +1037,7 @@ function printSection(sectionId,title){
   rt.className='report-title';
   rt.innerHTML=`<h2>${esc(title)}</h2>
     <div>${esc(ctx?.company_name||'')}</div>
-    ${sectionId==='pnl'?`<div style="margin-top:6px;font-weight:700">${esc(getPnlPeriodText())}</div>`:''}`;
+    ${sectionId==='pnl'?`<div style="margin-top:8px;font-weight:700">${esc(getPnlPeriodText())}</div>`:''}`;
   section.prepend(rt);
 
   document.body.classList.add('print-mode');
@@ -1077,6 +1087,16 @@ async function exportSectionPDF(sectionId,title){
     toast('فشل إنشاء PDF: '+(err?.message||'Unknown error'));
   }
 }
+
+
+if($('pnlFrom')) $('pnlFrom').addEventListener('input',()=>{
+  pnlSelectedFrom=$('pnlFrom').value||'';
+  renderPnL();
+});
+if($('pnlTo')) $('pnlTo').addEventListener('input',()=>{
+  pnlSelectedTo=$('pnlTo').value||'';
+  renderPnL();
+});
 
 init();
 </script>

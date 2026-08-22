@@ -76,6 +76,11 @@
 .year-pnl-table tr:last-child td{border-bottom:0}
 .year-pnl-profit{font-weight:800}
 
+
+.report-only{display:none}
+.pnl-report-period{margin:6px 0 16px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:#f8fafc;font-weight:700;font-size:14px}
+@media print{.report-only{display:block!important}}
+
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
@@ -305,6 +310,8 @@
       </section>
 
       <section id="pnl" class="section">
+        <div id="pnlReportPeriod" class="pnl-report-period report-only"></div>
+
         <div class="report-actions no-print"><button class="btn btn-light" onclick="printSection('pnl','Profit & Loss Statement')">🖨 Print</button><button class="btn btn-success" onclick="exportSectionPDF('pnl','Profit & Loss Statement')">📄 PDF</button></div>
         <div class="toolbar"><div class="field"><label>From</label><input type="date" id="pnlFrom"></div><div class="field"><label>To</label><input type="date" id="pnlTo"></div><button class="btn btn-light" onclick="window.print()">Print</button><button class="btn btn-success" onclick="exportPnL()" data-action-perm="excel_export">Export P&L</button></div>
         <div class="panel pnl"><h2>Profit & Loss Statement</h2><div class="pnl-line"><span>Net Sales (Excluding VAT)</span><strong id="pnlNetSales">0.00</strong></div><div class="pnl-line"><span>Net Cost (Excluding VAT)</span><strong id="pnlNetCost">0.00</strong></div><div class="pnl-line total"><span>Net Profit</span><strong id="pnlProfit">0.00</strong></div></div>
@@ -614,8 +621,27 @@ function renderDashboard(){
   $('recentExpensesBody').innerHTML=recentE.length?recentE.map(x=>`<tr><td>${x.expense_date}</td><td>${esc(x.expense_name)}</td><td>${fmt(x.amount)}</td></tr>`).join(''):'<tr><td colspan="3" class="empty">No expense data</td></tr>';
 }
 
+
+function formatReportDate(v){
+  if(!v) return '';
+  const p=String(v).split('-');
+  return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:String(v);
+}
+
+
+function getPnlPeriodText(){
+  const f=$('pnlFrom')?.value||'';
+  const t=$('pnlTo')?.value||'';
+  if(f&&t) return `Period: ${formatReportDate(f)} → ${formatReportDate(t)}`;
+  if(f) return `Period: From ${formatReportDate(f)}`;
+  if(t) return `Period: Until ${formatReportDate(t)}`;
+  return 'Period: All Periods';
+}
+
 function renderPnL(){
   const f=$('pnlFrom').value,t=$('pnlTo').value;
+  const periodText=getPnlPeriodText();
+  if($('pnlReportPeriod')) $('pnlReportPeriod').textContent=periodText;
   const ss=sales.filter(x=>inRange(x.sale_date,f,t));
   const ee=expenses.filter(x=>inRange(x.expense_date,f,t));
 
@@ -966,13 +992,19 @@ function cleanReportClone(sectionId,title){
 
   const header=document.createElement('div');
   header.style.cssText='margin-bottom:18px;padding-bottom:10px;border-bottom:1px solid #ddd;text-align:left';
+  const periodLine = sectionId==='pnl'
+    ? `<div style="font-size:13px;font-weight:700;color:#344054;margin-top:6px">${esc(getPnlPeriodText())}</div>`
+    : '';
+
   header.innerHTML=`
     <h1 style="margin:0 0 6px;font-size:24px">${esc(title)}</h1>
     <div style="font-size:12px;color:#667085">
       ${esc(ctx?.company_name||'')} - Generated ${new Date().toLocaleString()}
-    </div>`;
+    </div>
+    ${periodLine}`;
   clone.prepend(header);
 
+  clone.querySelectorAll('.report-only').forEach(el=>el.style.display='block');
   clone.style.display='block';
   clone.style.background='#fff';
   clone.style.color='#172033';
@@ -993,7 +1025,9 @@ function printSection(sectionId,title){
 
   const rt=document.createElement('div');
   rt.className='report-title';
-  rt.innerHTML=`<h2>${esc(title)}</h2><div>${esc(ctx?.company_name||'')}</div>`;
+  rt.innerHTML=`<h2>${esc(title)}</h2>
+    <div>${esc(ctx?.company_name||'')}</div>
+    ${sectionId==='pnl'?`<div style="margin-top:6px;font-weight:700">${esc(getPnlPeriodText())}</div>`:''}`;
   section.prepend(rt);
 
   document.body.classList.add('print-mode');
